@@ -1741,7 +1741,7 @@ export const WorkspaceApp = ({
       {emptyTrashConfirmationOpen && (
         <AppConfirmDialog
           title="清空回收站"
-          description="回收站中的全部笔记和仍关联的附件会被物理删除，这个操作不可恢复。"
+          description="回收站中的全部笔记和仍关联的附件都会删除，这个操作不可恢复。"
           confirmLabel="清空回收站"
           closeOnBrowserBack={false}
           isWorking={emptyTrashMutation.isPending}

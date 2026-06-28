@@ -987,7 +987,7 @@ export const MemoListPane = ({
               <Button
                 size="sm"
                 variant="danger"
-                title="物理删除回收站中的全部笔记"
+                title="清空回收站，不可恢复"
                 onClick={onEmptyTrash}
               >
                 <Trash2 className="h-4 w-4" />
