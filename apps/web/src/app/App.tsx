@@ -6,7 +6,7 @@ import { WorkspaceApp } from "@/components/WorkspaceApp";
 import type { AuthSession } from "@edgeever/shared";
 
 const AuthLoadingScreen = () => (
-  <div className="flex h-[100dvh] items-center justify-center bg-emerald-50 text-sm font-medium text-emerald-900">
+  <div className="flex h-[100dvh] items-center justify-center bg-slate-50 text-sm font-medium text-slate-600">
     EdgeEver
   </div>
 );
