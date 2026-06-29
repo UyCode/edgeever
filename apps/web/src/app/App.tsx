@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { EvernoteImportGuidePane } from "@/components/EvernoteImportGuidePane";
 import { LoginScreen } from "@/components/LoginScreen";
 import { WorkspaceApp } from "@/components/WorkspaceApp";
 import type { AuthSession } from "@edgeever/shared";
@@ -13,6 +14,21 @@ const AuthLoadingScreen = () => (
 
 export const App = () => {
   const queryClient = useQueryClient();
+
+  if (window.location.pathname === "/evernote-migration") {
+    return (
+      <EvernoteImportGuidePane
+        onClose={() => {
+          if (window.opener) {
+            window.close();
+            return;
+          }
+
+          window.location.href = "/";
+        }}
+      />
+    );
+  }
 
   const sessionQuery = useQuery({
     queryKey: ["auth", "session"],
