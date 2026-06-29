@@ -171,6 +171,8 @@ bun run cli -- --profile prod search edgeever
 bun run cli -- --profile prod export <memo-id> --format markdown --out ./memo.md
 ```
 
+自托管管理员或开发者从印象笔记迁移到 EdgeEver 时，可以按笔记本分别导出 `.notes` 或 `.enex` 文件，再使用 MCP 导入工具逐个笔记本确认结果。普通产品用户更适合使用应用内导入入口。详见：[从印象笔记迁移到 EdgeEver](docs/evernote-migration.md)。
+
 ## 图片压缩规则
 
 图片压缩以减少大图体积为目标，不会强制重压所有图片。原图较小、已是 WebP 且体积不大，或压缩后收益不明显时，会保留原图，避免影响截图、文字和笔记内容的清晰度。

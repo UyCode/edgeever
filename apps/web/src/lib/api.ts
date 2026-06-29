@@ -172,7 +172,7 @@ export const api = {
     return request<ListMemosResponse>(`/api/v1/memos?${search.toString()}`);
   },
 
-  createMemo: (payload: { notebookId: string; title?: string; contentMarkdown?: string; tags?: string[] }) =>
+  createMemo: (payload: { notebookId: string; title?: string; contentMarkdown?: string; tags?: string[]; createdAt?: string; updatedAt?: string }) =>
     request<MemoResponse>("/api/v1/memos", {
       method: "POST",
       body: JSON.stringify(payload),
