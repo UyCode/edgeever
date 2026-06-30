@@ -230,9 +230,14 @@ export const MemoListPane = ({
   desktopActionsOpen,
   setDesktopActionsOpen,
   isLoading,
+  isRefreshing,
+  isError,
+  onRetry,
   multiSelectKeyDown,
 }: {
   isLoading: boolean;
+  isRefreshing: boolean;
+  isError: boolean;
   multiSelectKeyDown: boolean;
   notebooks: Notebook[];
   notebook: Notebook | null;
@@ -284,6 +289,7 @@ export const MemoListPane = ({
   setDesktopSortOpen: (open: boolean) => void;
   desktopActionsOpen: boolean;
   setDesktopActionsOpen: (open: boolean) => void;
+  onRetry: () => void;
 }) => {
   const [memoContextMenu, setMemoContextMenu] = useState<MemoContextMenuState | null>(null);
   const [selectionContextMenu, setSelectionContextMenu] = useState<MemoSelectionContextMenuState | null>(null);
@@ -1157,8 +1163,19 @@ export const MemoListPane = ({
           </div>
         )}
 
-        {isLoading ? (
-          <div className="px-2 py-4 text-sm text-slate-500">加载中</div>
+        {isLoading || (isRefreshing && memos.length === 0) ? (
+          <div className="px-2 py-4 text-sm text-slate-500">正在拉取最新笔记</div>
+        ) : isError && memos.length === 0 ? (
+          <div className="rounded-md border border-dashed border-amber-300 bg-amber-50 px-4 py-9 text-center">
+            <div className="text-sm font-semibold text-amber-950">暂时没有拉到笔记</div>
+            <div className="mx-auto mt-2 max-w-[280px] text-xs leading-5 text-amber-800">
+              网络或 PWA 后台恢复可能短暂中断了同步。这里不会把它当作空笔记本。
+            </div>
+            <Button className="mt-4 justify-center" size="sm" variant="soft" onClick={onRetry}>
+              <RotateCcw className="h-4 w-4" />
+              重新拉取
+            </Button>
+          </div>
         ) : filteredMemos.length === 0 ? (
           <div className="rounded-md border border-dashed border-slate-300 bg-white px-4 py-9 text-center">
             <div className="text-sm font-semibold text-slate-800">

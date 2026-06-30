@@ -831,6 +831,31 @@ export const WorkspaceApp = ({
   }, [runQueuedSync]);
 
   useEffect(() => {
+    if (!isStandaloneRuntime) {
+      return;
+    }
+
+    const refreshWorkspaceQueries = () => {
+      if (document.visibilityState === "hidden" || (typeof navigator !== "undefined" && !navigator.onLine)) {
+        return;
+      }
+
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["memos"] }),
+        queryClient.invalidateQueries({ queryKey: ["notebooks"] }),
+      ]);
+    };
+
+    window.addEventListener("pageshow", refreshWorkspaceQueries);
+    document.addEventListener("visibilitychange", refreshWorkspaceQueries);
+
+    return () => {
+      window.removeEventListener("pageshow", refreshWorkspaceQueries);
+      document.removeEventListener("visibilitychange", refreshWorkspaceQueries);
+    };
+  }, [isStandaloneRuntime, queryClient]);
+
+  useEffect(() => {
     if (syncSummary.total === 0) {
       return;
     }
@@ -1848,12 +1873,15 @@ export const WorkspaceApp = ({
               searchFocusToken={mobileSearchFocusToken}
               canCreateMemo={canCreateMemo}
               isLoading={memosQuery.isLoading}
+              isRefreshing={memosQuery.isFetching}
+              isError={memosQuery.isError}
               isCreating={createMemoMutation.isPending}
               isMerging={mergeMutation.isPending}
               isMoving={moveMemosMutation.isPending}
               isPinning={pinMemosMutation.isPending}
               isDeleting={deleteMemosMutation.isPending || deleteMemoMutation.isPending}
               multiSelectKeyDown={multiSelectKeyDown}
+              onRetry={() => void memosQuery.refetch()}
               onOpenNotebookPicker={() => setMobileNotebookPickerOpen(true)}
               onSearch={setSearch}
               onCancelMobileSearch={handleCancelMobileSearch}
