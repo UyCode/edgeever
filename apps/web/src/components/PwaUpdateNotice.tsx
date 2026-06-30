@@ -57,7 +57,7 @@ const noticeCopy: Record<PwaUpdateNoticeKind, { title: string; description: stri
   },
   updated: {
     title: "EdgeEver 已更新",
-    description: "当前 PWA 已是最新版本。",
+    description: "当前应用已是最新版本。",
   },
   "reload-required": {
     title: "新版本已就绪",
@@ -67,7 +67,7 @@ const noticeCopy: Record<PwaUpdateNoticeKind, { title: string; description: stri
 
 const getNoticeDescription = (notice: Notice, fallbackDescription: string) => {
   if (notice.kind === "updated" && notice.buildLabel) {
-    return `当前 PWA 已是最新版本（${notice.buildLabel}）。`;
+    return `当前应用已是最新版本（${notice.buildLabel}）。`;
   }
 
   return fallbackDescription;
