@@ -279,44 +279,6 @@ const McpTitleWithHelp = () => {
   );
 };
 
-const McpRemoteServerField = () => {
-  const mcpRemoteServerUrl = getMcpRemoteServerUrl();
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    if (!(await copyTextToClipboard(mcpRemoteServerUrl))) {
-      return;
-    }
-
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
-  };
-
-  return (
-    <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50/70 p-3">
-      <span className="block text-xs font-semibold text-slate-500">MCP Remote Server</span>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <div
-          className="flex min-h-9 min-w-0 flex-1 items-center rounded-md border border-slate-100 bg-white/70 px-3 font-mono text-xs text-slate-800"
-          title={mcpRemoteServerUrl}
-        >
-          <span className="min-w-0 truncate">{mcpRemoteServerUrl}</span>
-        </div>
-        <Button
-          size="md"
-          variant="outline"
-          className="h-9 w-full whitespace-nowrap bg-white sm:w-32"
-          type="button"
-          onClick={() => void handleCopy()}
-        >
-          <Copy className="h-3.5 w-3.5" />
-          {copied ? "已复制" : "复制地址"}
-        </Button>
-      </div>
-    </div>
-  );
-};
-
 interface ScopePickerProps {
   availableScopes: string[];
   selectedScopes: Set<string>;
@@ -509,7 +471,6 @@ const TokenCard = ({
       <CardDescription className="text-xs leading-4">为 MCP 客户端或第三方工具生成访问凭证。</CardDescription>
     </CardHeader>
     <CardContent className="space-y-4 p-4 pt-0">
-      <McpRemoteServerField />
       {createdToken && <CreatedTokenNotice token={createdToken} />}
 
       <form className="min-w-0 space-y-4 rounded-lg border border-slate-100 bg-slate-50/70 p-3" onSubmit={onSubmit}>
