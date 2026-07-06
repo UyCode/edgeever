@@ -2,10 +2,11 @@
 
 简体中文 | [English](README.md)
 
-> **EdgeEver：基于 Cloudflare 自托管的免费开源『印象笔记』，原生支持 AI Agent 接入。**
+> **EdgeEver：无需服务器、0 费用、原生支持 AI Agent 的自托管『印象笔记』替代品。**
 
 EdgeEver 是一个开源、自托管、Cloudflare-native 的现代笔记工作区。它保留经典印象笔记的三栏体验，同时提供清晰的数据模型、REST API、OpenAPI schema 和 MCP endpoint，原生支持 AI Agent 接入。
-> 依托 Cloudflare 的免费额度，个人自部署后几乎可以永久零成本使用
+> 💡 **终身免服务器，100% 免费**
+> EdgeEver 采用纯 Serverless（无服务器）架构。自部署时**你不需要购买任何云服务器**，也**不需要折腾复杂的 Docker 或 SSL 证书**。直接运行在 Cloudflare 的免费额度内，个人日常使用 **完全免费，0 费用，0 运维**。
 
 ## 为什么做 EdgeEver
 
@@ -95,7 +96,7 @@ bun run deploy
 
 ## 功能
 
-- 个人使用几乎可以零成本托管：基于 Cloudflare D1 + R2 免费额度，短笔记可达 15 万条，200KB 图片约可存放 5 万张。
+- 零服务器，零运维，终身完全免费：基于 Cloudflare 无服务器架构与免费级配额，短笔记可达 15 万条，200KB 图片约可存放 5 万张，彻底免去云服务器租用和维护成本。
 - 数据完全开放：笔记内容存放在基于标准 SQLite 的 Cloudflare D1 中，可通过 REST API、MCP 和 CLI 按需读取、迁移或导出，不用担心被单一笔记产品绑定。
 - AI Agent 友好：原生支持 MCP，可让 Codex、Claude Code、Antigravity 等工具读取、整理和维护笔记。
 - 同时适配 PC 与移动端，支持网页访问与 PWA 安装，桌面管理和手机随手记录都顺手。

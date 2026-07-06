@@ -4,8 +4,8 @@ export const defaultSiteLocale: SiteLocale = "zh-CN";
 export const siteLocaleStorageKey = "edgeever.site.locale";
 export const siteLocaleDataAttribute = "data-edgeever-site-locale";
 export const siteTaglines = {
-  "zh-CN": "基于 Cloudflare 自托管的免费开源『印象笔记』，原生支持 AI Agent 接入",
-  "en-US": "A free, open-source Evernote alternative self-hosted on Cloudflare, with native AI Agent support.",
+  "zh-CN": "无需服务器、0 费用、原生支持 AI Agent 的自托管『印象笔记』替代品",
+  "en-US": "A serverless, 100% free, and AI-native self-hosted Evernote alternative on Cloudflare.",
 } as const satisfies Record<SiteLocale, string>;
 
 export const getSiteLocale = (pathname: string): SiteLocale => (pathname === "/en" || pathname.startsWith("/en/") ? "en-US" : "zh-CN");
@@ -28,7 +28,7 @@ export const siteCopy = {
   "zh-CN": {
     layout: {
       defaultDescription:
-        "EdgeEver 是一个开源、自托管、Cloudflare-native 的现代笔记工作区。保留经典印象笔记的三栏体验，支持富文本、无限嵌套，原生支持 MCP 对 AI Agent 极度友好，个人托管接近零成本。",
+        "EdgeEver 是一个开源、自托管、Cloudflare-native 的现代笔记工作区。保留经典印象笔记的三栏体验，支持富文本、无限嵌套，对 AI Agent 极度友好。采用无服务器架构，日常使用完全免费且无需服务器。",
       defaultTitle: `EdgeEver - ${siteTaglines["zh-CN"]}`,
       imageAlt: "EdgeEver 笔记应用截图",
       ogLocale: "zh_CN",
@@ -56,12 +56,12 @@ export const siteCopy = {
       heading: "重新定义个人笔记体验",
       items: [
         {
-          title: "海量存储，个人自托管接近零成本。",
-          summary: "依托 Cloudflare D1 与 R2 的免费额度，为个人笔记提供长期、低成本的自托管存储体验。",
+          title: "零服务器，零运维，终身完全免费",
+          summary: "彻底告别购买云服务器月租与繁琐维护。利用 Cloudflare 卓越的无服务器架构，个人使用终身免费。",
           points: [
-            "免费额度对个人笔记足够宽裕：短笔记可达 15 万条，200KB 图片约可存放 5 万张。",
-            "图片上传前在浏览器本地压缩，常见截图和照片通常减少 50%-90% 体积。",
-            "数据和资源分别落在 D1 与 R2，部署后由你自己的 Cloudflare 账号承载。",
+            "完全免服务器：无需配置 Docker、Nginx 或证书，一句话即可直接部署至 Cloudflare。",
+            "日常使用完全免费：充分利用 Cloudflare Workers、D1 与 R2 免费级配额（可存 15 万条笔记 + 5 万张图片）。",
+            "数据安全尽在掌握：虽然免服务器，但数据并非存在第三方，而是保存在你自己的 Cloudflare 账号中。",
           ],
         },
         {
@@ -131,7 +131,7 @@ export const siteCopy = {
   "en-US": {
     layout: {
       defaultDescription:
-        "EdgeEver is an open-source, self-hosted, Cloudflare-native notes workspace with a classic three-pane workflow, rich text, nested notebooks, REST API, OpenAPI schema, and Remote MCP endpoint.",
+        "EdgeEver is an open-source, serverless, 100% free notes workspace with a classic three-pane workflow, rich text, nested notebooks, and remote MCP endpoint.",
       defaultTitle: `EdgeEver - ${siteTaglines["en-US"]}`,
       imageAlt: "EdgeEver notes app screenshot",
       ogLocale: "en_US",
@@ -159,12 +159,12 @@ export const siteCopy = {
       heading: "A personal notes workspace rebuilt for self-hosting",
       items: [
         {
-          title: "Generous storage, nearly free forever.",
-          summary: "Cloudflare D1 and R2 free quotas are roomy enough for a personal notes archive.",
+          title: "No Server, Zero Maintenance, 100% Free",
+          summary: "Say goodbye to server rental fees and complex system management. EdgeEver runs entirely within Cloudflare's free tiers.",
           points: [
-            "The free tier can cover roughly 150k short notes and about 50k 200KB images.",
-            "Images are compressed locally before upload, often reducing screenshots and photos by 50%-90%.",
-            "Your data and resources live in your own Cloudflare account after deployment.",
+            "No Server Required: No need for Docker, Nginx, or SSL configuration. Deploy directly to Cloudflare with one simple tool.",
+            "100% Free Forever: Take full advantage of free tiers for Cloudflare Workers, D1, and R2 (supports up to 150k notes and 50k images).",
+            "Full Data Ownership: Serverless doesn't mean third-party storage. All your notes live securely within your own Cloudflare account.",
           ],
         },
         {
