@@ -883,6 +883,10 @@ export const WorkspaceScreen = () => {
         <SearchView
           isLoading={searchQuery.isFetching}
           isRefreshing={isRefreshing}
+          onClose={() => {
+            setSearchText("");
+            setActiveView("notes");
+          }}
           onMemoPress={handleSearchMemoPress}
           onRefresh={refresh}
           results={searchResults}
@@ -1596,6 +1600,7 @@ const ActionSheetItem = ({ danger = false, disabled = false, icon, label, onPres
 const SearchView = ({
   isLoading,
   isRefreshing,
+  onClose,
   onMemoPress,
   onRefresh,
   results,
@@ -1605,6 +1610,7 @@ const SearchView = ({
 }: {
   isLoading: boolean;
   isRefreshing: boolean;
+  onClose: () => void;
   onMemoPress: (memo: MemoSummary) => void;
   onRefresh: () => void;
   results: MemoSummary[];
@@ -1614,7 +1620,12 @@ const SearchView = ({
 }) => (
   <View style={styles.viewBody}>
     <View style={styles.searchHeader}>
-      <Text style={styles.sectionTitle}>搜索</Text>
+      <View style={styles.searchTitleRow}>
+        <Text style={styles.sectionTitle}>搜索</Text>
+        <IconButton onPress={onClose}>
+          <X color="#0f172a" size={20} />
+        </IconButton>
+      </View>
       <View style={styles.searchBox}>
         <Search color="#64748b" size={18} />
         <TextInput
@@ -5638,6 +5649,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 22,
     paddingBottom: 10,
+  },
+  searchTitleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   searchBox: {
     alignItems: "center",
