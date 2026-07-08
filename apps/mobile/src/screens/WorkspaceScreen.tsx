@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
+import * as DocumentPicker from "expo-document-picker";
 import type { MemoFilterMode, MemoSortMode } from "@edgeever/client";
 import {
   Archive,
@@ -23,6 +24,7 @@ import {
   Settings,
   Tag,
   Trash2,
+  Upload,
   UserRound,
   X,
 } from "lucide-react-native";
@@ -1405,6 +1407,7 @@ const ResourcesModal = ({
   visible: boolean;
 }) => {
   const { client } = useSession();
+  const queryClient = useQueryClient();
   const [searchText, setSearchText] = useState("");
   const [filter, setFilter] = useState<ResourceFilter>("all");
   const [previewResource, setPreviewResource] = useState<ResourceListItem | null>(null);
@@ -1419,6 +1422,56 @@ const ResourcesModal = ({
       return client.listResources();
     },
     enabled: Boolean(client && visible),
+  });
+
+  const uploadResourceMutation = useMutation({
+    mutationFn: async () => {
+      if (!client || !activeMemo) {
+        throw new Error("请先打开一条可用笔记");
+      }
+
+      if (activeMemo.isDeleted) {
+        throw new Error("回收站中的笔记不能上传资源");
+      }
+
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        multiple: false,
+        type: "*/*",
+      });
+
+      if (result.canceled) {
+        return null;
+      }
+
+      const asset = result.assets[0];
+
+      if (!asset?.uri) {
+        throw new Error("没有选择文件");
+      }
+
+      const form = new FormData();
+      form.append("file", {
+        uri: asset.uri,
+        name: asset.name || "upload",
+        type: asset.mimeType || "application/octet-stream",
+      } as unknown as Blob);
+
+      const response = await client.uploadMemoResource(activeMemo.id, form);
+      return response.resource;
+    },
+    onSuccess: async (resource) => {
+      if (!resource) {
+        return;
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["mobile", "resources"] }),
+        queryClient.invalidateQueries({ queryKey: ["mobile", "memo"] }),
+        queryClient.invalidateQueries({ queryKey: ["mobile", "memos"] }),
+      ]);
+      setFilter(resource.kind === "image" ? "image" : "all");
+    },
   });
 
   const resources = resourcesQuery.data?.resources ?? [];
@@ -1507,9 +1560,21 @@ const ResourcesModal = ({
             <OptionPill active={filter === "other"} label="其他" onPress={() => setFilter("other")} />
           </ScrollView>
 
+          <Pressable
+            disabled={!activeMemo || activeMemo.isDeleted || uploadResourceMutation.isPending}
+            onPress={() => uploadResourceMutation.mutate()}
+            style={[styles.uploadButton, (!activeMemo || activeMemo.isDeleted || uploadResourceMutation.isPending) && styles.buttonDisabled]}
+          >
+            {uploadResourceMutation.isPending ? <ActivityIndicator color="#ffffff" /> : <Upload color="#ffffff" size={18} />}
+            <Text style={styles.uploadButtonText}>{uploadResourceMutation.isPending ? "上传中" : "上传附件"}</Text>
+          </Pressable>
+
           <Text style={styles.assetsHint}>
             {activeMemo ? `当前笔记：${activeMemo.title?.trim() || activeMemo.excerpt || DEFAULT_MEMO_TITLE}` : "打开一条笔记后可作为资源上传目标"}
           </Text>
+          {uploadResourceMutation.error ? (
+            <Text style={styles.errorText}>{uploadResourceMutation.error instanceof Error ? uploadResourceMutation.error.message : "上传失败"}</Text>
+          ) : null}
         </View>
 
         {resourcesQuery.isLoading ? (
@@ -2467,6 +2532,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     lineHeight: 18,
+  },
+  uploadButton: {
+    alignItems: "center",
+    backgroundColor: "#047857",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  uploadButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "800",
   },
   sectionTitle: {
     color: "#0f172a",

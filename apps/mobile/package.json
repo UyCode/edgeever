@@ -17,6 +17,7 @@
     "@gorhom/bottom-sheet": "latest",
     "@tanstack/react-query": "latest",
     "expo": "latest",
+    "expo-document-picker": "~57.0.0",
     "expo-router": "latest",
     "expo-secure-store": "latest",
     "expo-status-bar": "latest",
@@ -33,6 +34,6 @@
     "@types/react": "latest",
     "babel-preset-expo": "latest",
     "gluestack-ui": "latest",
-    "typescript": "latest"
+    "typescript": "6.0.3"
   }
 }
