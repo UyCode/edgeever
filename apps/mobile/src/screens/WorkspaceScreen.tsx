@@ -1214,24 +1214,44 @@ const NotesView = ({
   selectionMode: boolean;
   selectedMemoIds: Set<string>;
   isEmptyingTrash: boolean;
-}) => (
-  <View style={styles.viewBody}>
-    {memoView === "notebook" ? (
-      <View style={styles.tabs}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <NotebookPill active={activeNotebookId === ALL_NOTES_ID} label="全部笔记" memoCount={notebooksMemoCount} onPress={() => onSelectNotebook(ALL_NOTES_ID)} />
-          {flattenNotebooks(notebooks, notebookSortMode).map(({ depth, notebook }) => (
-            <NotebookPill
-              active={activeNotebookId === notebook.id}
-              key={notebook.id}
-              label={`${"  ".repeat(depth)}${depth > 0 ? "└ " : ""}${notebook.name}`}
-              memoCount={notebook.memoCount}
-              onPress={() => onSelectNotebook(notebook.id)}
-            />
-          ))}
-        </ScrollView>
-      </View>
-    ) : null}
+}) => {
+  const [collapsedNotebookIds, setCollapsedNotebookIds] = useState<Set<string>>(() => new Set());
+  const notebookOptions = flattenNotebooks(notebooks, notebookSortMode);
+  const childNotebookIds = getNotebookParentIdSet(notebooks);
+  const visibleNotebookOptions = filterCollapsedNotebookOptions(notebookOptions, collapsedNotebookIds);
+  const toggleNotebookCollapsed = (notebookId: string) => {
+    setCollapsedNotebookIds((current) => {
+      const next = new Set(current);
+      if (next.has(notebookId)) {
+        next.delete(notebookId);
+      } else {
+        next.add(notebookId);
+      }
+      return next;
+    });
+  };
+
+  return (
+    <View style={styles.viewBody}>
+      {memoView === "notebook" ? (
+        <View style={styles.tabs}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <NotebookPill active={activeNotebookId === ALL_NOTES_ID} label="全部笔记" memoCount={notebooksMemoCount} onPress={() => onSelectNotebook(ALL_NOTES_ID)} />
+            {visibleNotebookOptions.map(({ depth, notebook }) => (
+              <NotebookPill
+                active={activeNotebookId === notebook.id}
+                collapsed={collapsedNotebookIds.has(notebook.id)}
+                hasChildren={childNotebookIds.has(notebook.id)}
+                key={notebook.id}
+                label={`${"  ".repeat(depth)}${depth > 0 ? "└ " : ""}${notebook.name}`}
+                memoCount={notebook.memoCount}
+                onPress={() => onSelectNotebook(notebook.id)}
+                onToggleCollapse={() => toggleNotebookCollapsed(notebook.id)}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
 
     <View style={styles.contentHeader}>
       <View>
@@ -1307,8 +1327,9 @@ const NotesView = ({
       selectionMode={selectionMode}
       selectedMemoIds={selectedMemoIds}
     />
-  </View>
-);
+    </View>
+  );
+};
 
 const NotesActionsModal = ({
   isEmptyingTrash,
@@ -4555,16 +4576,34 @@ const NotebookPicker = ({
 
 const NotebookPill = ({
   active,
+  collapsed,
+  hasChildren,
   label,
   memoCount,
   onPress,
+  onToggleCollapse,
 }: {
   active: boolean;
+  collapsed?: boolean;
+  hasChildren?: boolean;
   label: string;
   memoCount: number;
   onPress: () => void;
+  onToggleCollapse?: () => void;
 }) => (
   <Pressable onPress={onPress} style={[styles.notebookPill, active && styles.notebookPillActive]}>
+    {hasChildren ? (
+      <Pressable
+        accessibilityRole="button"
+        onPress={(event) => {
+          event.stopPropagation();
+          onToggleCollapse?.();
+        }}
+        style={styles.notebookPillToggle}
+      >
+        {collapsed ? <ChevronRight color={active ? "#ffffff" : "#64748b"} size={14} /> : <ChevronDown color={active ? "#ffffff" : "#64748b"} size={14} />}
+      </Pressable>
+    ) : null}
     <Text numberOfLines={1} style={[styles.notebookPillText, active && styles.notebookPillTextActive]}>
       {label}
     </Text>
@@ -5442,6 +5481,13 @@ const styles = StyleSheet.create({
   notebookPillActive: {
     backgroundColor: "#0f172a",
     borderColor: "#0f172a",
+  },
+  notebookPillToggle: {
+    alignItems: "center",
+    height: 18,
+    justifyContent: "center",
+    marginLeft: -4,
+    width: 18,
   },
   notebookPillText: {
     color: "#334155",
