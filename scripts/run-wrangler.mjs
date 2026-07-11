@@ -190,9 +190,6 @@ const hasSecretsFileArg = wranglerArgs.some((arg) => arg === "--secrets-file" ||
 const authPasswordHash = envValue("AUTH_PASSWORD_HASH");
 const finalWranglerArgs = [...wranglerArgs];
 
-console.log("FROM_ENV =", process.env.EDGE_EVER_AUTH_PASSWORD_HASH);
-console.log("ENV_VALUE =", authPasswordHash);
-
 if (isDeployCommand && authPasswordHash && !hasSecretsFileArg) {
   writeFileSync(generatedSecretsPath, `EDGE_EVER_AUTH_PASSWORD_HASH=${authPasswordHash}\n`);
   finalWranglerArgs.push("--secrets-file", generatedSecretsPath);
