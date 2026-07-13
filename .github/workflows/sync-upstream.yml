@@ -39,5 +39,21 @@ jobs:
             exit 0
           fi
 
-          git merge --no-edit upstream/main
+          set +e
+          git merge --no-commit --no-ff upstream/main
+          merge_status=$?
+          set -e
+
+          # Keep fork-owned automation. GITHUB_TOKEN cannot push incoming
+          # workflow-file changes because it has no Workflows permission.
+          git restore --source=HEAD --staged --worktree -- .github/workflows
+
+          unresolved_files="$(git diff --name-only --diff-filter=U)"
+          if [ -n "$unresolved_files" ]; then
+            echo "Upstream sync has conflicts outside .github/workflows:"
+            echo "$unresolved_files"
+            exit "$merge_status"
+          fi
+
+          git commit -m "chore: sync upstream main"
           git push origin HEAD:main
