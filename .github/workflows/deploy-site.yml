@@ -24,6 +24,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy Cloudflare Pages
+    if: github.repository == 'tianma-if/edgeever'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
