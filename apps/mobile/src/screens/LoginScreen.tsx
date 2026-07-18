@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ExternalLink } from "lucide-react-native";
+import { ExternalLink, LockKeyhole } from "../components/icons";
 import { useSession } from "../lib/session";
 
 const GITHUB_REPOSITORY_URL = "https://github.com/tianma-if/edgeever";
@@ -19,7 +19,7 @@ const GITHUB_REPOSITORY_URL = "https://github.com/tianma-if/edgeever";
 export const LoginScreen = () => {
   const { signIn } = useSession();
   const [baseUrl, setBaseUrl] = useState("");
-  const [username, setUsername] = useState("owner");
+  const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -49,12 +49,16 @@ export const LoginScreen = () => {
         <ExternalLink color="#475569" size={20} />
       </Pressable>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboard}>
-        <View style={styles.header}>
-          <Text style={styles.title}>EdgeEver</Text>
-          <Text style={styles.subtitle}>连接你的自托管笔记空间</Text>
-        </View>
-
         <View style={styles.form}>
+          <View style={styles.header}>
+            <View style={styles.logo}>
+              <LockKeyhole color="#ffffff" size={22} />
+            </View>
+            <View style={styles.headerText}>
+              <Text style={styles.title}>EdgeEver</Text>
+              <Text style={styles.subtitle}>连接你的自托管笔记空间</Text>
+            </View>
+          </View>
           <View style={styles.field}>
             <Text style={styles.label}>实例地址</Text>
             <TextInput
@@ -116,7 +120,7 @@ export const LoginScreen = () => {
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ecfdf5",
     flex: 1,
   },
   githubButton: {
@@ -139,20 +143,42 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   header: {
-    marginBottom: 28,
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 14,
+    marginBottom: 10,
+  },
+  headerText: {
+    flex: 1,
+  },
+  logo: {
+    alignItems: "center",
+    backgroundColor: "#10b981",
+    borderRadius: 12,
+    height: 48,
+    justifyContent: "center",
+    width: 48,
   },
   title: {
     color: "#0f172a",
-    fontSize: 34,
+    fontSize: 22,
     fontWeight: "800",
   },
   subtitle: {
     color: "#64748b",
-    fontSize: 16,
-    marginTop: 8,
+    fontSize: 12,
+    marginTop: 3,
   },
   form: {
+    alignSelf: "center",
+    backgroundColor: "#ffffff",
+    borderColor: "#a7f3d0",
+    borderRadius: 18,
+    borderWidth: 1,
     gap: 16,
+    maxWidth: 420,
+    padding: 24,
+    width: "100%",
   },
   field: {
     gap: 8,
@@ -179,8 +205,8 @@ const styles = StyleSheet.create({
   },
   button: {
     alignItems: "center",
-    backgroundColor: "#0f172a",
-    borderRadius: 8,
+    backgroundColor: "#10b981",
+    borderRadius: 10,
     justifyContent: "center",
     minHeight: 50,
   },

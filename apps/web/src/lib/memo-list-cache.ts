@@ -28,13 +28,19 @@ const memoMatchesFilter = (memo: MemoSummary, filterMode: unknown) => {
 
 const memoMatchesStaticListConstraints = (memo: MemoSummary, queryKey: readonly unknown[]) => {
   const [, view, notebookId, , filterMode] = queryKey;
+  const notebookIds = Array.isArray(queryKey[6]) ? queryKey[6] : [];
   const memoView = view === "trash" ? "trash" : "notebook";
 
   if ((memoView === "trash") !== memo.isDeleted) {
     return false;
   }
 
-  if (memoView === "notebook" && typeof notebookId === "string" && notebookId && memo.notebookId !== notebookId) {
+  if (
+    memoView === "notebook" &&
+    typeof notebookId === "string" &&
+    notebookId &&
+    !(notebookIds.length > 0 ? notebookIds.includes(memo.notebookId) : memo.notebookId === notebookId)
+  ) {
     return false;
   }
 

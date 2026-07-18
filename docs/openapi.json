@@ -431,6 +431,15 @@
             }
           },
           {
+            "name": "includeDescendants",
+            "in": "query",
+            "description": "Include memos from all descendant notebooks when notebookId is set.",
+            "schema": {
+              "type": "string",
+              "enum": ["1"]
+            }
+          },
+          {
             "name": "q",
             "in": "query",
             "schema": {

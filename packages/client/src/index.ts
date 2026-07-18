@@ -1,6 +1,7 @@
 import type {
   ApiToken,
   AuthSession,
+  InstanceUser,
   CreatedApiToken,
   JsonBackupMemo,
   JsonBackupNotebook,
@@ -55,6 +56,14 @@ export type ListApiTokensResponse = {
   availableScopes: string[];
 };
 
+export type ListUsersResponse = {
+  users: InstanceUser[];
+};
+
+export type UserResponse = {
+  user: InstanceUser;
+};
+
 export type MemoResponse = {
   memo: MemoDetail;
 };
@@ -76,6 +85,29 @@ export type MarkdownExportPage = {
 
 export type JsonBackupPage = MarkdownExportPage & {
   revisions: JsonBackupRevision[];
+};
+
+export type MobileSyncBootstrapPage = {
+  notebooks: Notebook[];
+  memos: MemoDetail[];
+  snapshotCursor: number;
+  totalCount: number;
+  nextAfterId: string | null;
+};
+
+export type MobileSyncChange = {
+  cursor: number;
+  entityType: "notebook" | "memo";
+  entityId: string;
+  operation: "upsert" | "delete";
+  notebook: Notebook | null;
+  memo: MemoDetail | null;
+};
+
+export type MobileSyncChangesPage = {
+  changes: MobileSyncChange[];
+  cursor: number;
+  hasMore: boolean;
 };
 
 export class ApiRequestError extends Error {
@@ -138,6 +170,26 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
         body: JSON.stringify(payload),
       }),
 
+    changePassword: (payload: { currentPassword: string; newPassword: string; confirmPassword: string }) =>
+      request<{ ok: true }>("/api/v1/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+
+    listUsers: () => request<ListUsersResponse>("/api/v1/users"),
+
+    createUser: (payload: { username: string; displayName?: string | null; password: string }) =>
+      request<UserResponse>("/api/v1/users", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+
+    updateUser: (userId: string, payload: { displayName?: string | null; password?: string; isDisabled?: boolean }) =>
+      request<UserResponse>(`/api/v1/users/${userId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+
     logout: () =>
       request<{ ok: true }>("/api/v1/auth/logout", {
         method: "POST",
@@ -145,6 +197,17 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
       }),
 
     listNotebooks: () => request<ListNotebooksResponse>("/api/v1/notebooks"),
+
+    getMobileSyncBootstrapPage: (afterId: string | null = null, limit = 100) => {
+      const search = new URLSearchParams({ limit: String(limit) });
+      if (afterId) {
+        search.set("afterId", afterId);
+      }
+      return request<MobileSyncBootstrapPage>(`/api/v1/sync/bootstrap?${search.toString()}`);
+    },
+
+    getMobileSyncChanges: (cursor: number, limit = 100) =>
+      request<MobileSyncChangesPage>(`/api/v1/sync/changes?cursor=${cursor}&limit=${limit}`),
 
     createNotebook: (payload: { name: string; parentId?: string | null }) =>
       request<NotebookResponse>("/api/v1/notebooks", {
@@ -191,6 +254,7 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
 
     listMemos: (params: {
       notebookId?: string | null;
+      includeDescendants?: boolean;
       q?: string;
       trash?: boolean;
       sort?: MemoSortMode;
@@ -202,6 +266,10 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
 
       if (params.notebookId) {
         search.set("notebookId", params.notebookId);
+      }
+
+      if (params.includeDescendants) {
+        search.set("includeDescendants", "1");
       }
 
       if (params.q?.trim()) {

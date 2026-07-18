@@ -37,7 +37,7 @@ import {
   type MobileEditorReturnPreview,
 } from "@/lib/mobile-editor";
 import { cn } from "@/lib/utils";
-import { createExcerpt, docToText, type Notebook, type AuthUser, type MemoSummary, type MemoDetail } from "@edgeever/shared";
+import { createExcerpt, docToText, getNotebookDescendantIds, type Notebook, type AuthUser, type MemoSummary, type MemoDetail } from "@edgeever/shared";
 import type {
   Pane,
   MemoView,
@@ -1161,11 +1161,16 @@ export const WorkspaceApp = ({
     return () => window.clearInterval(timer);
   }, [runQueuedSync, syncSummary.total]);
 
+  const selectedNotebookDescendantIds = useMemo(
+    () => (selectedNotebookId ? getNotebookDescendantIds(notebooks, selectedNotebookId) : []),
+    [notebooks, selectedNotebookId]
+  );
   const memosQuery = useInfiniteQuery({
-    queryKey: ["memos", memoView, selectedNotebookId, search, memoFilterMode, memoSortMode],
+    queryKey: ["memos", memoView, selectedNotebookId, search, memoFilterMode, memoSortMode, selectedNotebookDescendantIds],
     queryFn: ({ pageParam }) =>
       api.listMemos({
         notebookId: memoView === "notebook" ? selectedNotebookId : null,
+        includeDescendants: memoView === "notebook" && Boolean(selectedNotebookId),
         q: search,
         trash: memoView === "trash",
         filter: memoFilterMode,
@@ -2566,7 +2571,15 @@ export const WorkspaceApp = ({
                         ...(search.trim()
                           ? [
                               queryClient.invalidateQueries({
-                                queryKey: ["memos", memoView, selectedNotebookId, search, memoFilterMode, memoSortMode],
+                                queryKey: [
+                                  "memos",
+                                  memoView,
+                                  selectedNotebookId,
+                                  search,
+                                  memoFilterMode,
+                                  memoSortMode,
+                                  selectedNotebookDescendantIds,
+                                ],
                                 exact: true,
                                 refetchType: "active",
                               }),

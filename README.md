@@ -11,9 +11,16 @@ EdgeEver is an open-source, self-hosted, Cloudflare-native notes workspace. It k
 
 ## Why EdgeEver
 
-Many long-time Evernote users only need a reliable, open, responsive personal knowledge base. But modern commercial notes apps are often heavier than necessary, harder to migrate away from, and increasingly shaped by subscription and add-on features.
+Many long-time **Evernote** users only need a **reliable, open, and responsive** personal knowledge base. However, existing mainstream solutions all have their pain points:
 
-EdgeEver fills that gap: familiar notes interaction, open data, API access, MCP support, and self-hosted deployment that is practical for individuals.
+* **Evernote**: It has become increasingly bloated with commercial ads and unnecessary add-ons, leading to poor performance and high memory usage. It also locks down your data, making it hard to export. The Chinese version (Yinxiang) does not support MCP, while the international version supports MCP but requires a subscription starting at $15/month with strict usage limits.
+* **Obsidian**: Although open and customizable, it is too heavy for quick, on-the-go captures (especially on mobile). Official sync costs $5/month, while third-party sync solutions require significant setup effort.
+* **Memos & lightweight notes**: Though open and simple, their stream-based layouts differ significantly from the classic Evernote-style three-pane workflow.
+
+**EdgeEver is designed to fill this gap**: it retains the familiar classic three-pane note-taking experience, while providing fully open data models, REST API, native MCP support, and zero-cost self-hosted deployment.
+
+> 💡 **My current best practice:**
+> Use **EdgeEver** to quickly capture ideas and reminders as a raw "material library." When content needs structured organization, use **MCP** to let AI automatically organize and sync it into **Obsidian**, **Notion Database**, or **Feishu Bitable**.
 
 ## Online Demo
 
@@ -38,7 +45,7 @@ The public demo resets every Monday at 1:00 AM (China Standard Time) and restore
 - Batch note moving, notebook drag sorting, and hierarchy editing.
 - Offline drafts and local sync queue for existing notes.
 - Multi-user instances with isolated personal workspaces, owner-managed accounts, and PBKDF2-SHA256 password hashing.
-- Chrome/Edge web clipper is complete and pending store publication.
+- Chrome/Edge web clipper is complete and currently under store review.
 
 ## Deployment
 
@@ -68,7 +75,7 @@ After the first deployment, see [Cloudflare Workers Builds](docs/cloudflare-work
 
 Please refer to the [Cloudflare Manual Deployment Guide](docs/manual-deploy.md) for first-time manual installation, Cloudflare resource setup, and emergency recovery. After the first deployment, connect Workers Builds; future updates arrive through GitHub **Sync fork** or pushes to `main`.
 
-The automated helper commands are recommended. The template uses `admin` / `admin123` for the initial login, and the password can be changed later in Personal Settings. If you create the Cloudflare resources manually, finish configuring `.env.local`—including the D1 ID, R2 bucket, and the 400-day session limit—before running `bun run deploy`. Existing installations that use `EDGE_EVER_AUTH_PASSWORD_HASH` remain supported. Use that command only for first installation and emergency recovery; Workers Builds handles routine updates.
+The automated helper commands are recommended. The template uses `admin` / `admin123` for the initial login, and the password can be changed later in Personal Settings. If you create the Cloudflare resources manually, finish configuring `.env.local`—including the D1 ID, R2 bucket, and the 400-day session limit—before running `bun run deploy`.
 
 
 ## Multi-Account Login
@@ -86,13 +93,13 @@ EdgeEver can be installed as a PWA on desktop or mobile home screens. On desktop
 
 ## Chrome/Edge Web Clipper
 
-The Chrome/Edge web clipper is complete and pending store publication.
+The Chrome/Edge web clipper is complete and currently under store review.
 
 ## Native Clients
 
-Native clients are part of the EdgeEver roadmap. The mobile app is planned to be built with React Native, and the desktop app is planned to be built with Tauri.
+The initial app version is complete and currently under store review.
 
-The goal is to let users connect these clients to their own self-hosted EdgeEver instance, keeping the same Cloudflare-based backend, open API, and user-owned data model while providing a smoother native experience on mobile and desktop.
+The desktop app remains on the roadmap and is planned to use Tauri.
 
 ## Tech Stack
 
@@ -100,6 +107,7 @@ The goal is to let users connect these clients to their own self-hosted EdgeEver
 - Official site: Astro static site in `apps/site`, deployable to Cloudflare Pages.
 - Frontend: Vite, React, React Router, TanStack Query, Tailwind CSS, shadcn/ui, and Radix UI.
 - Editor: TipTap / ProseMirror with Markdown support; PWA uses vite-plugin-pwa, Workbox, and Dexie.
+- Mobile app: Expo + React Native, with SQLite local storage and incremental sync.
 - Web clipper: Manifest V3, Mozilla Readability, and Turndown for Chrome and Microsoft Edge.
 - Backend: Cloudflare Workers, Hono, Zod, D1, and R2, with REST API, OpenAPI, and Remote MCP.
 
