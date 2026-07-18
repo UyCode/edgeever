@@ -45,7 +45,7 @@ The public demo resets every Monday at 1:00 AM (China Standard Time) and restore
 - Batch note moving, notebook drag sorting, and hierarchy editing.
 - Offline drafts and local sync queue for existing notes.
 - Multi-user instances with isolated personal workspaces, owner-managed accounts, and PBKDF2-SHA256 password hashing.
-- Chrome/Edge web clipper is complete and pending store publication.
+- Chrome/Edge web clipper is complete and currently under store review.
 
 ## Deployment
 
