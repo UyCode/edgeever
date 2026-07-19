@@ -1,6 +1,7 @@
 import type { createEdgeEverClient, ListMemosResponse, MemoFilterMode, MemoSortMode } from "@edgeever/client";
 import type { MemoDetail, MemoSummary, Notebook } from "@edgeever/shared";
 import * as SQLite from "expo-sqlite";
+import { hasMobileSyncCursorRewound, hasMobileSyncIdentityChanged } from "./mobile-sync-protocol";
 
 const DATABASE_NAME = "edgeever-mobile.db";
 const BOOTSTRAP_PAGE_SIZE = 200;
@@ -22,6 +23,7 @@ export type LocalMemoListParams = {
   sort?: MemoSortMode;
   filter?: MemoFilterMode;
   limit?: number;
+  offset?: number;
 };
 
 export const createMobileDataScope = (baseUrl: string, userId?: string | null) =>
@@ -86,16 +88,21 @@ export const listLocalMemos = async (scope: string, params: LocalMemoListParams)
     `SELECT COUNT(*) AS count FROM mobile_memos WHERE ${conditions.join(" AND ")}`,
     ...binds
   );
+  const limit = params.limit ?? 50;
+  const offset = Math.max(0, params.offset ?? 0);
   const rows = await db.getAllAsync<StoredMemoRow>(
-    `SELECT data_json FROM mobile_memos WHERE ${conditions.join(" AND ")} ORDER BY ${orderBy} LIMIT ?`,
+    `SELECT data_json FROM mobile_memos WHERE ${conditions.join(" AND ")} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
     ...binds,
-    params.limit ?? 50
+    limit,
+    offset
   );
+  const totalCount = countRow?.count ?? rows.length;
+  const nextOffset = offset + rows.length;
 
   return {
     memos: rows.map((row) => toMemoSummary(JSON.parse(row.data_json) as MemoDetail)),
-    totalCount: countRow?.count ?? rows.length,
-    nextCursor: null,
+    totalCount,
+    nextCursor: nextOffset < totalCount ? String(nextOffset) : null,
   };
 };
 
@@ -172,20 +179,29 @@ const performMobileLocalMirrorSync = async (
     `SELECT value FROM mobile_sync_meta WHERE scope = ? AND key = 'cursor'`,
     scope
   );
+  const identityRow = await db.getFirstAsync<CursorRow>(
+    `SELECT value FROM mobile_sync_meta WHERE scope = ? AND key = 'identity'`,
+    scope
+  );
   let cursor = cursorRow ? Number(cursorRow.value) : null;
+  let syncIdentity = identityRow?.value ?? null;
 
-  if (cursor === null || !Number.isFinite(cursor)) {
+  if (cursor === null || !Number.isFinite(cursor) || syncIdentity === null) {
     let afterId: string | null = null;
     let snapshotCursor = 0;
+    let snapshotIdentity = "legacy";
     await db.withExclusiveTransactionAsync(async (tx) => {
       await tx.runAsync(`DELETE FROM mobile_notebooks WHERE scope = ?`, scope);
-      await tx.runAsync(`DELETE FROM mobile_memos WHERE scope = ?`, scope);
+      // Offline-created memos are owned by the local sync queue and must
+      // survive a remote snapshot rebuild.
+      await tx.runAsync(`DELETE FROM mobile_memos WHERE scope = ? AND id NOT LIKE 'local:%'`, scope);
     });
 
     while (true) {
       const page = await client.getMobileSyncBootstrapPage(afterId, BOOTSTRAP_PAGE_SIZE);
       if (afterId === null) {
         snapshotCursor = page.snapshotCursor;
+        snapshotIdentity = page.syncIdentity || "legacy";
       }
       await db.withExclusiveTransactionAsync(async (tx) => {
         for (const notebook of page.notebooks) {
@@ -201,11 +217,20 @@ const performMobileLocalMirrorSync = async (
       afterId = page.nextAfterId;
     }
     cursor = snapshotCursor;
+    syncIdentity = snapshotIdentity;
     await setCursor(db, scope, cursor);
+    await setSyncIdentity(db, scope, syncIdentity);
   }
 
   while (true) {
     const page = await client.getMobileSyncChanges(cursor, CHANGE_PAGE_SIZE);
+    if (hasMobileSyncCursorRewound(cursor, page.serverCursor) || hasMobileSyncIdentityChanged(syncIdentity, page.syncIdentity)) {
+      // A restored/replaced server database can legitimately restart its
+      // change sequence. Rebuild the mirror instead of treating the stale
+      // local cursor as proof that no remote notes exist.
+      await db.runAsync(`DELETE FROM mobile_sync_meta WHERE scope = ? AND key IN ('cursor', 'identity')`, scope);
+      return performMobileLocalMirrorSync(client, scope);
+    }
     await db.withExclusiveTransactionAsync(async (tx) => {
       for (const change of page.changes) {
         if (change.entityType === "memo") {
@@ -292,6 +317,13 @@ const setCursor = (db: SQLite.SQLiteDatabase, scope: string, cursor: number) =>
     `INSERT OR REPLACE INTO mobile_sync_meta (scope, key, value) VALUES (?, 'cursor', ?)`,
     scope,
     String(cursor)
+  );
+
+const setSyncIdentity = (db: SQLite.SQLiteDatabase, scope: string, identity: string) =>
+  db.runAsync(
+    `INSERT OR REPLACE INTO mobile_sync_meta (scope, key, value) VALUES (?, 'identity', ?)`,
+    scope,
+    identity
   );
 
 const toMemoSummary = (memo: MemoDetail): MemoSummary => ({

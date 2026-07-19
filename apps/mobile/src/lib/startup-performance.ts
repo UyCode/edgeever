@@ -8,10 +8,34 @@ type NativeStartupTiming = {
 };
 
 const marks = new Map<StartupMark, number>();
+let latestEditorStartupMs: number | null = null;
+let editorOpenStartedAt: number | null = null;
+
+const logPerformance = (metric: string, durationMs: number) => {
+  console.info(`[EdgeEverPerformance] ${metric}=${Math.max(0, durationMs).toFixed(0)}ms`);
+};
 
 export const markStartup = (name: StartupMark) => {
   if (!marks.has(name)) {
-    marks.set(name, performance.now());
+    const now = performance.now();
+    marks.set(name, now);
+    const nativeStart = (performance as Performance & { rnStartupTiming?: NativeStartupTiming }).rnStartupTiming?.startTime ?? 0;
+    logPerformance(name, now - nativeStart);
+  }
+};
+
+export const beginEditorStartup = () => {
+  editorOpenStartedAt = performance.now();
+};
+
+export const recordEditorStartup = (durationMs: number) => {
+  if (Number.isFinite(durationMs) && durationMs >= 0) {
+    latestEditorStartupMs = durationMs;
+    logPerformance("local-editor-ready", durationMs);
+    if (editorOpenStartedAt !== null) {
+      logPerformance("editor-open-to-ready", performance.now() - editorOpenStartedAt);
+      editorOpenStartedAt = null;
+    }
   }
 };
 
@@ -32,5 +56,6 @@ export const getStartupPerformanceItems = () => {
     { label: "启动至工作区首帧", value: sinceNativeStart("workspace-first-commit") },
     { label: "启动至列表数据就绪", value: sinceNativeStart("workspace-data-ready") },
     { label: "启动至交互空闲", value: sinceNativeStart("workspace-interactive") },
+    { label: "最近一次本地编辑器启动", value: latestEditorStartupMs === null ? "尚未记录" : `${latestEditorStartupMs.toFixed(0)} ms` },
   ];
 };

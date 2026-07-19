@@ -31,7 +31,11 @@ ANDROID_KEY_ALIAS
 ANDROID_KEY_PASSWORD
 ```
 
-The resulting artifact is named `edgeever-android-release-aab`. The upload
+The resulting app bundle is uploaded as `edgeever-android-release-aab`. Release
+builds enable R8 code minification and resource shrinking, and the matching
+deobfuscation file is uploaded as `edgeever-android-release-mapping`. Upload
+that `mapping.txt` alongside the same app bundle version in Google Play Console
+so production crash and ANR stack traces can be decoded correctly. The upload
 keystore is only used to prove ownership when uploading bundles; Google Play
 App Signing manages the app signing key delivered to users. Keep an encrypted
 backup of the upload keystore and its credentials outside the repository.

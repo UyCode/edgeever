@@ -4,6 +4,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import { createExcerpt, docToMarkdown, docToText, emptyDoc, type MemoDetail, type MemoEditSession, type Notebook, type TiptapDoc } from "@edgeever/shared";
+import { getMobileEditorInputAttributes, getMobileEditorPlaceholder } from "@edgeever/shared/mobile-editor";
 import {
   MobileEditorFallback,
   MobileEditorHeader,
@@ -171,19 +172,12 @@ export const MobileStandaloneTiptapEditor = ({
         inline: false,
       }),
       Placeholder.configure({
-        placeholder: "开始记录...",
+        placeholder: getMobileEditorPlaceholder("zh-CN"),
       }),
     ],
     content: emptyDoc(),
     editorProps: {
-      attributes: {
-        class: "edgeever-mobile-tiptap-content",
-        autocapitalize: "sentences",
-        autocomplete: "on",
-        autocorrect: "on",
-        inputmode: "text",
-        spellcheck: "true",
-      },
+      attributes: getMobileEditorInputAttributes("edgeever-mobile-tiptap-content"),
     },
     onUpdate: ({ editor: activeEditor }) => {
       contentJsonRef.current = activeEditor.getJSON() as TiptapDoc;

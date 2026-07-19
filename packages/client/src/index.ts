@@ -91,6 +91,7 @@ export type MobileSyncBootstrapPage = {
   notebooks: Notebook[];
   memos: MemoDetail[];
   snapshotCursor: number;
+  syncIdentity?: string;
   totalCount: number;
   nextAfterId: string | null;
 };
@@ -108,6 +109,8 @@ export type MobileSyncChangesPage = {
   changes: MobileSyncChange[];
   cursor: number;
   hasMore: boolean;
+  serverCursor?: number;
+  syncIdentity?: string;
 };
 
 export class ApiRequestError extends Error {

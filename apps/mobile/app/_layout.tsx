@@ -7,10 +7,13 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { SessionProvider } from "../src/lib/session";
+import { MobileThemeProvider, useMobileTheme } from "../src/lib/mobile-theme";
+import { MobileLocaleProvider } from "../src/lib/mobile-locale";
+import { AppDialogProvider } from "../src/components/AppDialogProvider";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -64,29 +67,46 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <PersistQueryClientProvider
-          client={queryClient}
-          persistOptions={{
-            buster: "native-cache-v1",
-            dehydrateOptions: {
-              shouldDehydrateQuery: (query) => {
-                const section = query.queryKey[1];
-                const isOfflineReadableData = section === "notebooks" || section === "memos" || section === "memo";
+      <MobileThemeProvider>
+        <MobileLocaleProvider>
+          <ThemedApp>
+            <SafeAreaProvider>
+              <AppDialogProvider>
+                <PersistQueryClientProvider
+                  client={queryClient}
+                  persistOptions={{
+                    buster: "native-cache-v1",
+                    dehydrateOptions: {
+                      shouldDehydrateQuery: (query) => {
+                        const section = query.queryKey[1];
+                        const isOfflineReadableData = section === "notebooks" || section === "memos" || section === "memo";
 
-                return query.state.status === "success" && isOfflineReadableData;
-              },
-            },
-            maxAge: MOBILE_CACHE_MAX_AGE,
-            persister,
-          }}
-        >
-          <SessionProvider>
-            <Stack screenOptions={{ headerShown: false }} />
-            <StatusBar style="dark" />
-          </SessionProvider>
-        </PersistQueryClientProvider>
-      </SafeAreaProvider>
+                        return query.state.status === "success" && isOfflineReadableData;
+                      },
+                    },
+                    maxAge: MOBILE_CACHE_MAX_AGE,
+                    persister,
+                  }}
+                >
+                  <SessionProvider>
+                    <Stack screenOptions={{ headerShown: false }} />
+                  </SessionProvider>
+                </PersistQueryClientProvider>
+              </AppDialogProvider>
+            </SafeAreaProvider>
+          </ThemedApp>
+        </MobileLocaleProvider>
+      </MobileThemeProvider>
     </GestureHandlerRootView>
   );
 }
+
+const ThemedApp = ({ children }: { children: ReactNode }) => {
+  const { resolvedTheme } = useMobileTheme();
+  return (
+    <>
+      {children}
+      <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
+    </>
+  );
+};

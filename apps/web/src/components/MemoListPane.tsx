@@ -53,6 +53,7 @@ import { MemoCard } from "./MemoCard";
 import { cn } from "@/lib/utils";
 import { WORKSPACE_PAGE_TITLE_CLASSNAME } from "@/lib/workspace-ui";
 import type { Notebook, MemoSummary } from "@edgeever/shared";
+import { toggleMobileMemoFilterMode } from "@edgeever/shared/mobile-ui";
 import type {
   MemoFilterMode,
   MemoSortMode,
@@ -1220,7 +1221,7 @@ export const MemoListPane = ({
         <div className={cn("items-center gap-2", mobileSearchActive ? "hidden lg:flex" : "flex")}>
           <div
             className={cn(
-              "flex h-9 min-w-0 flex-1 items-center gap-2 rounded-full border px-3 text-sm transition focus-within:ring-2 lg:rounded-md",
+              "flex h-mobile-control min-w-0 flex-1 items-center gap-2 rounded-full border px-3 text-sm transition focus-within:ring-2 lg:rounded-md",
               searchActive
                 ? "border-emerald-400 bg-emerald-50/80 text-emerald-700 shadow-[0_0_0_1px_rgba(52,211,153,0.18)] ring-1 ring-emerald-200 focus-within:border-emerald-500 focus-within:bg-white focus-within:ring-emerald-300/50"
                 : "border-transparent bg-slate-100 text-slate-500 focus-within:border-slate-300 focus-within:bg-white focus-within:ring-slate-400/20 lg:border-slate-200 lg:bg-slate-50"
@@ -1265,7 +1266,7 @@ export const MemoListPane = ({
               <button
                 key={option.value}
                 className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-full border transition",
+                  "flex h-mobile-control w-mobile-control items-center justify-center rounded-full border transition",
                   filterMode === option.value
                     ? "border-slate-700 bg-slate-700 text-white shadow-[0_8px_18px_rgba(15,23,42,0.16)]"
                     : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800"
@@ -1274,7 +1275,7 @@ export const MemoListPane = ({
                 title={filterMode === option.value ? t("memoList.toggleOffFilter", { label: option.label }) : option.label}
                 aria-label={filterMode === option.value ? t("memoList.toggleOffFilter", { label: option.label }) : option.label}
                 aria-pressed={filterMode === option.value}
-                onClick={() => handleFilterModeChange(filterMode === option.value ? "all" : option.value)}
+                onClick={() => handleFilterModeChange(toggleMobileMemoFilterMode(filterMode, option.value))}
               >
                 {getMobileFilterIcon(option.value)}
               </button>

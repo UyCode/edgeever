@@ -16,6 +16,8 @@
     "dev:api:remote": "bun scripts/run-wrangler.mjs dev --remote --port 8787",
     "dev:web": "vite --config apps/web/vite.config.ts --host 127.0.0.1 --port 5173",
     "dev:mobile": "bun --cwd apps/mobile expo start",
+    "build:android:fast": "bash scripts/build-android-local.sh fast",
+    "build:android:play": "bash scripts/build-android-local.sh play",
     "dev:site": "bun --cwd apps/site dev",
     "build": "bun run build:web",
     "build:extension": "vite build --config apps/extension/vite.config.ts",

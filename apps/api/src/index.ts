@@ -827,7 +827,13 @@ app.get("/api/v1/sync/bootstrap", async (c) => {
        LIMIT ?`
     ).bind(workspaceId, afterId, limit + 1).all<MemoDetailRow>(),
     c.env.DB.prepare(`SELECT COUNT(*) AS count FROM memos WHERE workspace_id = ?`).bind(workspaceId).first<{ count: number }>(),
-    c.env.DB.prepare(`SELECT COALESCE(MAX(id), 0) AS cursor FROM mobile_sync_changes WHERE workspace_id = ?`).bind(workspaceId).first<{ cursor: number }>(),
+    c.env.DB.prepare(
+      `SELECT w.created_at AS sync_identity, COALESCE(MAX(c.id), 0) AS cursor
+       FROM workspaces w
+       LEFT JOIN mobile_sync_changes c ON c.workspace_id = w.id
+       WHERE w.id = ?
+       GROUP BY w.created_at`
+    ).bind(workspaceId).first<{ cursor: number; sync_identity: string }>(),
   ]);
   const page = memoRows.results.slice(0, limit);
   const totalCount = totalRow?.count ?? page.length;
@@ -837,6 +843,7 @@ app.get("/api/v1/sync/bootstrap", async (c) => {
     notebooks: notebookRows.results.map(mapNotebook),
     memos: page.map(mapMemoDetail),
     snapshotCursor: cursorRow?.cursor ?? 0,
+    syncIdentity: cursorRow?.sync_identity,
     totalCount,
     nextAfterId,
   });
@@ -852,13 +859,22 @@ app.get("/api/v1/sync/changes", async (c) => {
   const workspaceId = getWorkspaceId(c);
   const cursor = clampNumber(Number(c.req.query("cursor") ?? 0), 0, Number.MAX_SAFE_INTEGER);
   const limit = clampNumber(Number(c.req.query("limit") ?? 100), 1, 200);
-  const rows = await c.env.DB.prepare(
-    `SELECT id, entity_type, entity_id, operation
-     FROM mobile_sync_changes
-     WHERE workspace_id = ? AND id > ?
-     ORDER BY id ASC
-     LIMIT ?`
-  ).bind(workspaceId, cursor, limit + 1).all<MobileSyncChangeRow>();
+  const [rows, cursorRow] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT id, entity_type, entity_id, operation
+       FROM mobile_sync_changes
+       WHERE workspace_id = ? AND id > ?
+       ORDER BY id ASC
+       LIMIT ?`
+    ).bind(workspaceId, cursor, limit + 1).all<MobileSyncChangeRow>(),
+    c.env.DB.prepare(
+      `SELECT w.created_at AS sync_identity, COALESCE(MAX(c.id), 0) AS cursor
+       FROM workspaces w
+       LEFT JOIN mobile_sync_changes c ON c.workspace_id = w.id
+       WHERE w.id = ?
+       GROUP BY w.created_at`
+    ).bind(workspaceId).first<{ cursor: number; sync_identity: string }>(),
+  ]);
   const page = rows.results.slice(0, limit);
   const memoIds = Array.from(new Set(page.filter((change) => change.entity_type === "memo" && change.operation === "upsert").map((change) => change.entity_id)));
   const notebookIds = Array.from(new Set(page.filter((change) => change.entity_type === "notebook" && change.operation === "upsert").map((change) => change.entity_id)));
@@ -903,6 +919,8 @@ app.get("/api/v1/sync/changes", async (c) => {
     changes,
     cursor: page.at(-1)?.id ?? cursor,
     hasMore: rows.results.length > limit,
+    serverCursor: cursorRow?.cursor ?? 0,
+    syncIdentity: cursorRow?.sync_identity,
   });
 });
 
