@@ -26,22 +26,22 @@ Build success is not a performance result. Before a Play production rollout, rec
 - Keep optional heavyweight features out of the startup path. A WebView may only be used for an explicitly selected compatibility editor, never as the App workspace.
 - Use virtualized lists and stable item components for collections.
 
-## Feature parity status
+## Mobile product scope
 
-| PWA capability | Native status |
+The App follows the mobile PWA for high-frequency layouts and interactions, but it is not a copy of every desktop management feature. Shared mobile interaction contracts belong in `@edgeever/shared`; platform-specific rendering, local persistence, protected resource loading, and save lifecycles remain separate when that preserves native performance.
+
+| Mobile capability | Native status |
 | --- | --- |
 | Login and self-hosted instance connection | Implemented |
 | Notebook hierarchy and management | Implemented |
-| Memo list, filters, sort, pin, trash, batch operations | Implemented |
-| Search | Implemented |
-| Native Markdown create/edit flow | Implemented |
-| Attachments, image compression, resource library | Implemented |
-| Tags and templates | Implemented |
+| Memo list, filters, sort, pin, and batch operations | Implemented |
+| Local-cache search | Implemented |
+| Local TipTap create/edit and autosave flow | Implemented |
+| Attachments, image compression, and resource library | Implemented |
+| Tag management | Implemented |
 | Revision history and restore | Implemented |
-| Offline draft and sync queue | Implemented |
+| Offline drafts, local mirror, and sync queue | Implemented |
 | MCP/API token management | Implemented |
-| Password change | Pending native UI |
-| Multi-user management | Pending native UI |
-| Unified EdgeEver ZIP import/export | Pending native UI and filesystem bridge |
+| Password change and multi-user management | Implemented |
 
-Pending parity items must be implemented natively or through a native system bridge. They must not be solved by restoring the PWA workspace WebView.
+Desktop-first management features such as unified ZIP import/export and trash browsing, restore, or empty-trash actions are intentionally excluded from the App core. Ordinary mobile deletion remains a soft delete so that recovery stays available from the desktop/PWA interface. Future mobile work should prioritize capture, reading, editing, search, sync reliability, startup speed, and interaction smoothness instead of restoring these excluded screens.

@@ -1,8 +1,8 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type QueryClient, type UseMutationResult } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import Constants from "expo-constants";
-import type { DocumentPickerAsset } from "expo-document-picker";
+import { File as ExpoFile } from "expo-file-system";
 import type { MemoFilterMode, MemoSortMode } from "@edgeever/client";
 import {
   Archive,
@@ -28,6 +28,7 @@ import {
   List,
   LogOut,
   Merge,
+  MessageSquare,
   Moon,
   MoreHorizontal,
   MoreVertical,
@@ -60,6 +61,7 @@ import {
   Image as RNImage,
   type ImageStyle,
   InteractionManager,
+  type LayoutChangeEvent,
   Linking,
   Modal,
   Platform,
@@ -77,8 +79,8 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Alert, Pressable, Text, TextInput } from "../components/LocalizedText";
 import Markdown, { type RenderRules } from "react-native-markdown-display";
 import { SvgXml } from "react-native-svg";
-import { buildRevisionDiffRows, createExcerpt, docToMarkdown, docToText, getNotebookDescendantIds, markdownToDoc, type ApiToken, type AuthUser, type MemoDetail, type MemoRevision, type MemoSummary, type Notebook, type ResourceListItem, type RevisionDiffRow, type TagSummary, type TiptapDoc } from "@edgeever/shared";
-import { MOBILE_UI_METRICS, toggleMobileMemoFilterMode } from "@edgeever/shared/mobile-ui";
+import { buildGitHubFeedbackUrl, buildRevisionDiffRows, createExcerpt, docToMarkdown, docToText, getNotebookDescendantIds, markdownToDoc, type ApiToken, type AuthUser, type MemoDetail, type MemoRevision, type MemoSummary, type Notebook, type ResourceListItem, type RevisionDiffRow, type TagSummary, type TiptapDoc } from "@edgeever/shared";
+import { MOBILE_UI_METRICS, getMobileCenteredScrollOffset, getMobileNotebookSearchVisibleIds, toggleMobileMemoFilterMode, toggleMobileMemoSelection } from "@edgeever/shared/mobile-ui";
 import { clearMobileMemoDraft, clearMobileNewMemoDraft, readMobileMemoDraft, readMobileNewMemoDraft, writeMobileMemoDraft, writeMobileNewMemoDraft, type MobileMemoDraft } from "../lib/mobile-drafts";
 import {
   readMobileImageCompressionEnabled,
@@ -104,18 +106,23 @@ import {
 import {
   createMobileDataScope,
   getLocalMemo,
+  isMobileLocalMirrorInitialized,
   listLocalMemos,
   listLocalNotebooks,
   replaceLocalMemoId,
   resolveLocalMemo,
   syncMobileLocalMirror,
   upsertLocalMemo,
+  type MobileBootstrapProgress,
 } from "../lib/local-mirror";
 import { AccountSecurityPanel } from "./AccountSecurityModal";
 import { beginEditorStartup, markStartup, recordEditorStartup } from "../lib/startup-performance";
+import { prepareUploadAsset } from "../lib/mobile-image-upload";
 import EditorRuntimePrewarm from "../components/EditorRuntimePrewarm";
+import { showEdgeEverKeyboard } from "../../modules/edgeever-keyboard";
 import LocalTiptapEditor, { type LocalTiptapEditorRef } from "../components/LocalTiptapEditor";
 import { resolveMobileThemeStyles, useMobileTheme, type MobileResolvedTheme } from "../lib/mobile-theme";
+import { MobileUpdateCard } from "../components/MobileUpdateCard";
 
 const ALL_NOTES_ID = "all";
 const DEFAULT_MEMO_TITLE = "无标题笔记";
@@ -125,6 +132,7 @@ const resolveEditableMemoTitle = (title?: string | null) => {
 };
 const MOBILE_APP_VERSION = Constants.expoConfig?.version ?? "0.1.2";
 const GITHUB_REPOSITORY_URL = "https://github.com/tianma-if/edgeever";
+const ANDROID_SYSTEM_NAVIGATION_FALLBACK = 48;
 
 const formatExecutionEnvironment = (environment: string | null | undefined, localePreference: MobileLocaleMode = "system") => {
   const english = isEnglishMobileLocale(localePreference);
@@ -195,10 +203,6 @@ const MOBILE_LOCALE_OPTIONS: Array<{ label: string; value: MobileLocalePreferenc
   { label: "简体中文", value: "zh-CN" },
   { label: "English", value: "en-US" },
 ];
-const COMPRESSIBLE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/avif"]);
-const MAX_COMPRESSED_IMAGE_EDGE = 2560;
-const IMAGE_COMPRESSION_QUALITY = 0.82;
-
 type MobileView = "notes" | "settings";
 type SettingsTab = "general" | "users" | "ai" | "account";
 type MemoView = "notebook" | "trash";
@@ -254,6 +258,10 @@ export const WorkspaceScreen = () => {
   const [selectedMemoIds, setSelectedMemoIds] = useState<Set<string>>(() => new Set());
   const [selectionMoveOpen, setSelectionMoveOpen] = useState(false);
   const [selectionMoreOpen, setSelectionMoreOpen] = useState(false);
+  const [isInitialMirrorStatusPending, setIsInitialMirrorStatusPending] = useState(true);
+  const [initialMirrorSyncProgress, setInitialMirrorSyncProgress] = useState<MobileBootstrapProgress | null>(null);
+  const [initialMirrorSyncError, setInitialMirrorSyncError] = useState<unknown>(null);
+  const [mirrorSyncAttempt, setMirrorSyncAttempt] = useState(0);
   const autoSyncRunningRef = useRef(false);
   const autoSyncRequestedRef = useRef(false);
   const autoSyncRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -267,12 +275,7 @@ export const WorkspaceScreen = () => {
         throw new Error("Client is not ready");
       }
 
-      let local = await listLocalNotebooks(dataScope);
-      if (local.notebooks.length === 0) {
-        await syncMobileLocalMirror(client, dataScope);
-        local = await listLocalNotebooks(dataScope);
-      }
-      return local;
+      return listLocalNotebooks(dataScope);
     },
     enabled: Boolean(client),
   });
@@ -436,17 +439,7 @@ export const WorkspaceScreen = () => {
 
   const toggleSelectedMemo = (memoId: string) => {
     setSelectionMode(true);
-    setSelectedMemoIds((current) => {
-      const next = new Set(current);
-
-      if (next.has(memoId)) {
-        next.delete(memoId);
-      } else {
-        next.add(memoId);
-      }
-
-      return next;
-    });
+    setSelectedMemoIds((current) => toggleMobileMemoSelection(current, memoId));
   };
 
   const clearSelection = () => {
@@ -519,10 +512,10 @@ export const WorkspaceScreen = () => {
   const closeRichEditor = () => {
     const memoId = richEditingSession?.memo.id ?? null;
     setRichEditingSession(null);
+    setSelectedMemoId(null);
     if (memoId) {
       memoDraftPrefetchRef.current.delete(memoId);
       void loadMemoDraft(memoId);
-      setSelectedMemoId(memoId);
     }
   };
 
@@ -963,17 +956,46 @@ export const WorkspaceScreen = () => {
     }
     let active = true;
     const syncMirror = async () => {
+      let isInitialSync = false;
+      let refreshedNotebooksDuringBootstrap = false;
       try {
-        await syncMobileLocalMirror(client, dataScope);
+        isInitialSync = !(await isMobileLocalMirrorInitialized(dataScope));
+        if (active) {
+          setIsInitialMirrorStatusPending(false);
+          setInitialMirrorSyncError(null);
+          setInitialMirrorSyncProgress(isInitialSync ? { loadedCount: 0, totalCount: 0 } : null);
+        }
+        await syncMobileLocalMirror(client, dataScope, {
+          onBootstrapProgress: isInitialSync ? async (progress) => {
+            if (!active) {
+              return;
+            }
+            setInitialMirrorSyncProgress(progress);
+            const invalidations = [
+              queryClient.invalidateQueries({ queryKey: ["mobile", "memos"] }),
+              queryClient.invalidateQueries({ queryKey: ["mobile", "search"] }),
+            ];
+            if (!refreshedNotebooksDuringBootstrap) {
+              refreshedNotebooksDuringBootstrap = true;
+              invalidations.push(queryClient.invalidateQueries({ queryKey: ["mobile", "notebooks"] }));
+            }
+            await Promise.all(invalidations);
+          } : undefined,
+        });
         if (active) {
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: ["mobile", "notebooks"] }),
             queryClient.invalidateQueries({ queryKey: ["mobile", "memos"] }),
             queryClient.invalidateQueries({ queryKey: ["mobile", "search"] }),
           ]);
+          setInitialMirrorSyncProgress(null);
         }
-      } catch {
-        // The local mirror remains readable while the device is offline.
+      } catch (error) {
+        if (active && isInitialSync) {
+          setInitialMirrorSyncProgress(null);
+          setInitialMirrorSyncError(error);
+        }
+        // An initialized local mirror remains readable while the device is offline.
       }
     };
     void syncMirror();
@@ -986,7 +1008,7 @@ export const WorkspaceScreen = () => {
       active = false;
       subscription.remove();
     };
-  }, [client, dataScope, queryClient]);
+  }, [client, dataScope, mirrorSyncAttempt, queryClient]);
 
   if (richEditingSession) {
     return <RichEditorModal
@@ -1006,7 +1028,8 @@ export const WorkspaceScreen = () => {
       {activeView === "notes" ? (
         <NotesView
           activeNotebook={activeNotebook}
-          isLoading={searchActive ? searchQuery.isLoading : memosQuery.isLoading}
+          initialSyncProgress={initialMirrorSyncProgress}
+          isLoading={notebooksQuery.isLoading || (searchActive ? searchQuery.isLoading : memosQuery.isLoading) || (isInitialMirrorStatusPending && visibleMemos.length === 0)}
           isLoadingMore={searchActive ? searchQuery.isFetchingNextPage : memosQuery.isFetchingNextPage}
           isRefreshing={isRefreshing}
           memoFilterMode={memoFilterMode}
@@ -1039,8 +1062,13 @@ export const WorkspaceScreen = () => {
             : memosQuery.data?.pages[0]?.totalCount ?? memos.length}
           selectionMode={selectionMode}
           selectedMemoIds={selectedMemoIds}
-          error={searchActive ? searchQuery.error : memosQuery.error}
-          isError={searchActive ? searchQuery.isError : memosQuery.isError}
+          error={initialMirrorSyncError ?? notebooksQuery.error ?? (searchActive ? searchQuery.error : memosQuery.error)}
+          isError={Boolean(initialMirrorSyncError) || notebooksQuery.isError || (searchActive ? searchQuery.isError : memosQuery.isError)}
+          onRetry={() => {
+            setIsInitialMirrorStatusPending(true);
+            setInitialMirrorSyncError(null);
+            setMirrorSyncAttempt((attempt) => attempt + 1);
+          }}
         />
       ) : null}
 
@@ -1236,6 +1264,7 @@ export const WorkspaceScreen = () => {
 const NotesView = ({
   activeNotebook,
   error,
+  initialSyncProgress,
   isError,
   isLoading,
   isLoadingMore,
@@ -1254,6 +1283,7 @@ const NotesView = ({
   onMemoPress,
   onLoadMore,
   onRefresh,
+  onRetry,
   onSearchTextChange,
   onSetMemoView,
   searchText,
@@ -1263,6 +1293,7 @@ const NotesView = ({
 }: {
   activeNotebook: Notebook | null;
   error: unknown;
+  initialSyncProgress: MobileBootstrapProgress | null;
   isError: boolean;
   isLoading: boolean;
   isLoadingMore: boolean;
@@ -1281,6 +1312,7 @@ const NotesView = ({
   onMemoPress: (memoId: string) => void;
   onLoadMore: () => void;
   onRefresh: () => void;
+  onRetry: () => void;
   onSearchTextChange: (value: string) => void;
   onSetMemoView: (memoView: MemoView) => void;
   searchText: string;
@@ -1320,7 +1352,7 @@ const NotesView = ({
         ) : null}
         <View style={styles.mobileListTitleRow}>
           <Pressable
-            accessibilityLabel={memoView === "trash" ? "返回笔记列表" : "选择笔记本"}
+            accessibilityLabel={memoView === "trash" ? "返回笔记列表" : "切换笔记本"}
             accessibilityRole="button"
             onPress={memoView === "trash" ? () => onSetMemoView("notebook") : onOpenNotebookPicker}
             style={styles.mobileNotebookTitleButton}
@@ -1331,7 +1363,7 @@ const NotesView = ({
             </Text>
             {memoView === "notebook" ? <ChevronDown color="#64748b" size={16} /> : null}
           </Pressable>
-          <Pressable accessibilityLabel={selectionMode ? "批量操作" : "笔记列表操作"} accessibilityRole="button" onPress={onOpenActions} style={styles.mobileMoreButton}>
+          <Pressable accessibilityLabel={selectionMode ? "批量操作" : "列表选项"} accessibilityRole="button" onPress={onOpenActions} style={styles.mobileMoreButton}>
             <MoreHorizontal color="#475569" size={20} />
           </Pressable>
         </View>
@@ -1406,6 +1438,7 @@ const NotesView = ({
       emptyDescription={searchActive ? "换个关键词再试" : memoFilterMode !== "all" ? "试试切换筛选条件，或调整搜索关键词。" : memoView === "trash" ? "删除的笔记会显示在这里。" : "先创建一条笔记，之后可以在这里快速预览、搜索和批量整理。"}
       emptyTitle={searchActive ? "没有找到匹配笔记" : memoFilterMode !== "all" ? "没有符合筛选的笔记" : memoView === "trash" ? "回收站为空" : "暂无笔记"}
       error={error}
+      initialSyncProgress={initialSyncProgress}
       isError={isError}
       isLoading={isLoading}
       isLoadingMore={isLoadingMore}
@@ -1416,7 +1449,7 @@ const NotesView = ({
       onMemoPress={onMemoPress}
       onLoadMore={onLoadMore}
       onRefresh={onRefresh}
-      onRetry={onRefresh}
+      onRetry={onRetry}
       selectionMode={selectionMode}
       selectedMemoIds={selectedMemoIds}
     />
@@ -1515,6 +1548,48 @@ const SheetOptionRow = ({ active, icon, label, onPress }: { active: boolean; ico
   </Pressable>
 );
 
+const useAutoCenterSelectedScrollRow = (visible: boolean, selectedKey: string) => {
+  const scrollRef = useRef<ScrollView>(null);
+  const viewportHeightRef = useRef(0);
+  const rowLayoutsRef = useRef(new Map<string, { height: number; y: number }>());
+  const hasCenteredRef = useRef(false);
+
+  const centerSelectedRow = useCallback(() => {
+    const selectedLayout = rowLayoutsRef.current.get(selectedKey);
+    const viewportHeight = viewportHeightRef.current;
+    if (!visible || hasCenteredRef.current || !selectedLayout || viewportHeight <= 0) {
+      return;
+    }
+
+    hasCenteredRef.current = true;
+    const y = getMobileCenteredScrollOffset(selectedLayout.y, selectedLayout.height, viewportHeight);
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ animated: false, y }));
+  }, [selectedKey, visible]);
+
+  useLayoutEffect(() => {
+    hasCenteredRef.current = false;
+    const frame = requestAnimationFrame(centerSelectedRow);
+    return () => cancelAnimationFrame(frame);
+  }, [centerSelectedRow]);
+
+  const onViewportLayout = useCallback((event: LayoutChangeEvent) => {
+    viewportHeightRef.current = event.nativeEvent.layout.height;
+    hasCenteredRef.current = false;
+    centerSelectedRow();
+  }, [centerSelectedRow]);
+
+  const onRowLayout = useCallback((rowKey: string, event: LayoutChangeEvent) => {
+    const { height, y } = event.nativeEvent.layout;
+    rowLayoutsRef.current.set(rowKey, { height, y });
+    if (rowKey === selectedKey) {
+      hasCenteredRef.current = false;
+      centerSelectedRow();
+    }
+  }, [centerSelectedRow, selectedKey]);
+
+  return { onRowLayout, onViewportLayout, scrollRef };
+};
+
 const NotebookPickerModal = ({
   activeNotebookId,
   notebooks,
@@ -1532,12 +1607,13 @@ const NotebookPickerModal = ({
   const safeAreaInsets = useSafeAreaInsets();
   const [searchText, setSearchText] = useState("");
   const [collapsedNotebookIds, setCollapsedNotebookIds] = useState<Set<string>>(() => new Set());
+  const selectedScroll = useAutoCenterSelectedScrollRow(visible, activeNotebookId);
   const notebookOptions = flattenNotebooks(notebooks);
   const searchQuery = searchText.trim();
   const childNotebookIds = getNotebookParentIdSet(notebooks);
   const activeNotebookAncestorIds = getNotebookAncestorIds(notebooks, activeNotebookId);
   const visibleNotebookOptions = searchQuery
-    ? filterNotebookOptions(notebookOptions, searchText)
+    ? filterNotebookOptionsById(notebookOptions, getMobileNotebookSearchVisibleIds(notebooks, searchText))
     : filterCollapsedNotebookOptions(notebookOptions, collapsedNotebookIds);
   const activeNotebookName = activeNotebookId === ALL_NOTES_ID
     ? "全部笔记"
@@ -1584,7 +1660,12 @@ const NotebookPickerModal = ({
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.notebookPickerContent} style={styles.notebookPickerScroll}>
+          <ScrollView
+            contentContainerStyle={styles.notebookPickerContent}
+            onLayout={selectedScroll.onViewportLayout}
+            ref={selectedScroll.scrollRef}
+            style={styles.notebookPickerScroll}
+          >
           <View style={styles.notebookPickerSearchBox}>
             <Search color="#64748b" size={18} />
             <TextInput
@@ -1608,6 +1689,7 @@ const NotebookPickerModal = ({
             accessibilityLabel={activeNotebookId === ALL_NOTES_ID ? "当前：全部笔记" : "切换到全部笔记"}
             accessibilityRole="button"
             accessibilityState={{ selected: activeNotebookId === ALL_NOTES_ID }}
+            onLayout={(event) => selectedScroll.onRowLayout(ALL_NOTES_ID, event)}
             onPress={() => onSelect(ALL_NOTES_ID)}
             style={[styles.notebookPickerRow, styles.notebookPickerAllRow, activeNotebookId === ALL_NOTES_ID && styles.notebookPickerRowActive]}
           >
@@ -1635,6 +1717,7 @@ const NotebookPickerModal = ({
           {visibleNotebookOptions.map(({ depth, notebook }) => (
             <View
               key={notebook.id}
+              onLayout={(event) => selectedScroll.onRowLayout(notebook.id, event)}
               style={[styles.notebookPickerRow, activeNotebookId === notebook.id && styles.notebookPickerRowActive, depth > 0 && { marginLeft: Math.min(depth * 18, 54) }]}
             >
               {childNotebookIds.has(notebook.id) && !searchQuery ? (
@@ -1752,6 +1835,9 @@ const SettingsView = ({
       setLocalePickerOpen(true);
     });
   };
+  const openFeedback = () => {
+    void Linking.openURL(buildMobileFeedbackUrl(localePreference));
+  };
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -1794,6 +1880,7 @@ const SettingsView = ({
                 </View>
               </View>
             </View>
+            <MobileUpdateCard />
             <SystemInfoCard embedded />
           </SettingsGroup>
         </View>
@@ -1851,16 +1938,30 @@ const SettingsView = ({
       </View>
       <ScrollView contentContainerStyle={styles.settingsScrollContent} style={styles.viewBody}>
         {activeTab === null ? (
-          <View style={styles.settingsMenu}>
-            {tabs.map((tab, index) => (
-              <Pressable key={tab.key} onPress={() => setActiveTab(tab.key)} style={[styles.settingsMenuRow, index > 0 && styles.settingsMenuRowBorder]}>
+          <View style={styles.settingsDetailList}>
+            <View style={styles.settingsMenu}>
+              {tabs.map((tab, index) => (
+                <Pressable key={tab.key} onPress={() => setActiveTab(tab.key)} style={[styles.settingsMenuRow, index > 0 && styles.settingsMenuRowBorder]}>
+                  <View style={styles.settingsMenuLabel}>
+                    <View style={styles.settingsMenuIcon}>{tab.icon}</View>
+                    <Text style={styles.settingsMenuText}>{tab.label}</Text>
+                  </View>
+                  <ChevronRight color="#94a3b8" size={17} />
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.settingsMenu}>
+              <Pressable accessibilityRole="link" onPress={openFeedback} style={styles.settingsMenuRow}>
                 <View style={styles.settingsMenuLabel}>
-                  <View style={styles.settingsMenuIcon}>{tab.icon}</View>
-                  <Text style={styles.settingsMenuText}>{tab.label}</Text>
+                  <View style={[styles.settingsMenuIcon, styles.settingsFeedbackIcon]}><MessageSquare color="#64748b" size={17} /></View>
+                  <View style={styles.settingsFeedbackCopy}>
+                    <Text style={styles.settingsMenuText}>意见反馈</Text>
+                    <Text style={styles.settingsLinkDescription}>报告问题或提出功能建议</Text>
+                  </View>
                 </View>
-                <ChevronRight color="#94a3b8" size={17} />
+                <ExternalLink color="#94a3b8" size={17} />
               </Pressable>
-            ))}
+            </View>
           </View>
         ) : renderContent()}
       </ScrollView>
@@ -2127,6 +2228,7 @@ const CreateMemoModal = ({
   };
 
   const pickAndUploadImage = async () => {
+    let uploadId: string | null = null;
     try {
       const DocumentPicker = await import("expo-document-picker");
       const result = await DocumentPicker.getDocumentAsync({
@@ -2136,21 +2238,27 @@ const CreateMemoModal = ({
       });
       const asset = result.canceled ? null : result.assets[0];
       if (!asset) {
-        return null;
+        return;
       }
+      uploadId = createMobileImageUploadId();
+      const previewDataUrl = await createLocalImagePreviewDataUrl(asset);
+      editorRef.current?.beginImageUpload(uploadId, previewDataUrl);
       const memo = await materializeMemoForImage();
       setImageOperation("uploading");
       const uploadAsset = await prepareUploadAsset(asset, imageCompressionEnabled);
       const form = new FormData();
-      form.append("file", uploadAsset as unknown as Blob);
+      form.append("file", new ExpoFile(uploadAsset.uri));
       const { resource } = await client!.uploadMemoResource(memo.id, form);
-      return {
-        alt: resource.filename || uploadAsset.name || "图片",
-        url: resource.url,
-      };
+      editorRef.current?.completeImageUpload(
+        uploadId,
+        resource.url,
+        resource.filename || uploadAsset.name || "图片"
+      );
     } catch (error) {
+      if (uploadId) {
+        editorRef.current?.cancelImageUpload(uploadId);
+      }
       Alert.alert("图片上传失败", error instanceof Error ? error.message : "请检查网络连接后重试");
-      return null;
     } finally {
       setImageOperation("idle");
     }
@@ -2204,6 +2312,7 @@ const CreateMemoModal = ({
 
   const editorElement = useMemo(() => draftLoaded && baseUrl ? (
     <LocalTiptapEditor
+      autoFocus
       baseUrl={baseUrl}
       content={contentJsonRef.current}
       dom={{
@@ -2227,6 +2336,9 @@ const CreateMemoModal = ({
       onReady={async (elapsedMs) => {
         setEditorReady(true);
         recordEditorStartup(elapsedMs);
+        if (Platform.OS === "android") {
+          setTimeout(showEdgeEverKeyboard, 180);
+        }
       }}
       ref={editorRef}
       locale={resolvedLocale}
@@ -2935,17 +3047,8 @@ const SystemInfoCard = ({ embedded = false }: { embedded?: boolean }) => {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const localePreference = useMobileLocalePreference();
-  const resolvedLocale = getResolvedMobileLocale(localePreference);
   const copy = getMobileSystemInfoText(localePreference);
-  const infoItems = [
-    { label: copy.version, value: `v${MOBILE_APP_VERSION}` },
-    { label: copy.build, value: __DEV__ ? "development" : "production" },
-    { label: copy.platform, value: Platform.OS },
-    { label: copy.platformVersion, value: String(Platform.Version) },
-    { label: copy.language, value: localePreference === "system" ? `${resolvedLocale} (${copy.followSystem})` : resolvedLocale },
-    { label: copy.timeZone, value: Intl.DateTimeFormat().resolvedOptions().timeZone || copy.unknown },
-    { label: copy.installMode, value: formatExecutionEnvironment(Constants.executionEnvironment, localePreference) },
-  ];
+  const infoItems = getMobileSystemInfoItems(localePreference);
 
   const copySystemInfo = async () => {
     await Clipboard.setStringAsync(infoItems.map((item) => `${item.label}: ${item.value}`).join("\n"));
@@ -3082,7 +3185,7 @@ const ResourcesModal = ({
         setUploadProgress(`正在上传第 ${index + 1}/${assets.length} 个文件...`);
         const form = new FormData();
         const uploadAsset = await prepareUploadAsset(asset, imageCompressionEnabled);
-        form.append("file", uploadAsset as unknown as Blob);
+        form.append("file", new ExpoFile(uploadAsset.uri));
 
         const { resource } = await client.uploadMemoResource(activeMemo.id, form);
         resources.push(resource);
@@ -3917,6 +4020,7 @@ const MemoDetailModal = ({
 }) => {
   const { session } = useSession();
   const { resolvedTheme } = useMobileTheme();
+  const safeAreaInsets = useSafeAreaInsets();
   const [actionsOpen, setActionsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchReplaceOpen, setSearchReplaceOpen] = useState(false);
@@ -3942,6 +4046,10 @@ const MemoDetailModal = ({
   const detailText = memo?.contentMarkdown || memo?.contentText || "没有正文内容";
   const searchMatches = useMemo(() => getTextSearchMatches(detailText, searchQuery), [detailText, searchQuery]);
   const searchMatchLabel = searchQuery.trim() ? `${searchMatches.length > 0 ? activeMatchIndex + 1 : 0}/${searchMatches.length}` : "0/0";
+  const editFabBottom = Math.max(
+    safeAreaInsets.bottom,
+    Platform.OS === "android" ? ANDROID_SYSTEM_NAVIGATION_FALLBACK : 0
+  ) + 16;
 
   useEffect(() => {
     setActiveMatchIndex(0);
@@ -4070,7 +4178,7 @@ const MemoDetailModal = ({
               beginEditorStartup();
               onRichEdit(memo);
             }}
-            style={styles.detailEditFab}
+            style={[styles.detailEditFab, { bottom: editFabBottom }]}
           >
             <Pencil color="#ffffff" size={20} />
           </Pressable>
@@ -4307,11 +4415,11 @@ const RichEditorModal = ({
 
   const pickAndUploadImage = async () => {
     if (!client || !memo || uploadingRef.current) {
-      return null;
+      return;
     }
     if (memo.id.startsWith("local:")) {
       Alert.alert("正在同步新笔记", "首次同步完成后即可上传本地图片；图片链接现在就可以直接粘贴到正文。");
-      return null;
+      return;
     }
     const DocumentPicker = await import("expo-document-picker");
     const result = await DocumentPicker.getDocumentAsync({
@@ -4321,24 +4429,28 @@ const RichEditorModal = ({
     });
     const asset = result.canceled ? null : result.assets[0];
     if (!asset) {
-      return null;
+      return;
     }
 
+    const uploadId = createMobileImageUploadId();
     uploadingRef.current = true;
     setUploading(true);
     setError(null);
     try {
+      const previewDataUrl = await createLocalImagePreviewDataUrl(asset);
+      editorRef.current?.beginImageUpload(uploadId, previewDataUrl);
       const uploadAsset = await prepareUploadAsset(asset, imageCompressionEnabled);
       const form = new FormData();
-      form.append("file", uploadAsset as unknown as Blob);
+      form.append("file", new ExpoFile(uploadAsset.uri));
       const { resource } = await client.uploadMemoResource(memo.id, form);
-      return {
-        alt: resource.filename || uploadAsset.name || "图片",
-        url: resource.url,
-      };
+      editorRef.current?.completeImageUpload(
+        uploadId,
+        resource.url,
+        resource.filename || uploadAsset.name || "图片"
+      );
     } catch (uploadError) {
+      editorRef.current?.cancelImageUpload(uploadId);
       setError(uploadError instanceof Error ? uploadError.message : "图片上传失败");
-      return null;
     } finally {
       uploadingRef.current = false;
       setUploading(false);
@@ -4361,6 +4473,7 @@ const RichEditorModal = ({
   const editorElement = useMemo(
     () => memo && baseUrl ? (
       <LocalTiptapEditor
+        autoFocus
         baseUrl={baseUrl}
         content={contentJsonRef.current}
         dom={{
@@ -4383,7 +4496,10 @@ const RichEditorModal = ({
           initialFocusTimerRef.current = setTimeout(() => {
             initialFocusTimerRef.current = null;
             editorRef.current?.focusEnd();
-          }, 160);
+            if (Platform.OS === "android") {
+              showEdgeEverKeyboard();
+            }
+          }, 180);
         }}
         ref={editorRef}
         locale={resolvedLocale}
@@ -4512,6 +4628,7 @@ const MemoList = ({
   emptyTitle,
   error,
   isError,
+  initialSyncProgress,
   isLoading,
   isLoadingMore = false,
   isRefreshing,
@@ -4530,6 +4647,7 @@ const MemoList = ({
   emptyTitle: string;
   error?: unknown;
   isError: boolean;
+  initialSyncProgress: MobileBootstrapProgress | null;
   isLoading: boolean;
   isLoadingMore?: boolean;
   isRefreshing: boolean;
@@ -4543,10 +4661,34 @@ const MemoList = ({
   selectionMode?: boolean;
   selectedMemoIds?: Set<string>;
 }) => {
-  if (isLoading) {
+  const localePreference = useMobileLocalePreference();
+  const englishLocale = isEnglishMobileLocale(localePreference);
+  const hasInitialSyncProgress = initialSyncProgress !== null;
+  const loadedCount = initialSyncProgress?.loadedCount ?? 0;
+  const totalCount = initialSyncProgress?.totalCount ?? 0;
+  const progressPercent = totalCount > 0 ? Math.min(100, Math.round((loadedCount / totalCount) * 100)) : 0;
+  const progressTitle = englishLocale ? "Syncing your notes" : "正在同步笔记";
+  const progressDescription = totalCount > 0
+    ? (englishLocale ? `${loadedCount} of ${totalCount} notes loaded` : `已加载 ${loadedCount} / ${totalCount} 条笔记`)
+    : (englishLocale ? "Preparing your notes for the first sync…" : "正在准备首次同步…");
+  const loadingTitle = hasInitialSyncProgress ? progressTitle : (englishLocale ? "Loading notes" : "正在加载笔记");
+  const loadingDescription = hasInitialSyncProgress
+    ? progressDescription
+    : (englishLocale ? "Loading notebooks and notes…" : "正在加载笔记本和笔记…");
+
+  if ((isLoading || hasInitialSyncProgress) && memos.length === 0) {
     return (
-      <View style={styles.memoListStateWrap}>
-        <Text style={styles.memoListLoadingText}>正在拉取最新笔记</Text>
+      <View accessibilityLabel={loadingTitle} accessibilityLiveRegion="polite" style={styles.memoListStateWrap}>
+        <View style={styles.memoListLoadingCard}>
+          <ActivityIndicator color="#059669" size="large" />
+          <Text style={styles.memoListLoadingTitle}>{loadingTitle}</Text>
+          <Text style={styles.memoListLoadingDescription}>{loadingDescription}</Text>
+          {totalCount > 0 ? (
+            <View style={styles.memoSyncProgressTrack}>
+              <View style={[styles.memoSyncProgressFill, { width: `${progressPercent}%` }]} />
+            </View>
+          ) : null}
+        </View>
       </View>
     );
   }
@@ -4602,6 +4744,33 @@ const MemoList = ({
           ) : null}
         </View>
       }
+      ListHeaderComponent={hasInitialSyncProgress ? (
+          <View accessibilityLiveRegion="polite" style={styles.memoSyncBanner}>
+            <ActivityIndicator color="#059669" size="small" />
+            <View style={styles.memoSyncBannerContent}>
+              <Text style={styles.memoSyncBannerTitle}>{progressTitle}</Text>
+              <Text style={styles.memoSyncBannerDescription}>{progressDescription}</Text>
+              <View style={styles.memoSyncProgressTrack}>
+                <View style={[styles.memoSyncProgressFill, { width: `${progressPercent}%` }]} />
+              </View>
+            </View>
+          </View>
+        ) : isError ? (
+          <View accessibilityLiveRegion="polite" style={styles.memoSyncErrorBanner}>
+            <View style={styles.memoSyncBannerContent}>
+              <Text style={styles.memoSyncErrorBannerTitle}>{englishLocale ? "Sync paused" : "同步已暂停"}</Text>
+              <Text style={styles.memoSyncErrorBannerDescription}>
+                {englishLocale ? "Loaded notes remain available. Check your connection and retry." : "已加载的笔记仍可使用，请检查网络后重试。"}
+              </Text>
+            </View>
+            {onRetry ? (
+              <Pressable accessibilityRole="button" onPress={onRetry} style={styles.memoSyncErrorRetryButton}>
+                <RotateCcw color="#92400e" size={15} />
+                <Text style={styles.memoListRetryText}>{englishLocale ? "Retry" : "重试"}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
       ListFooterComponent={isLoadingMore ? <ActivityIndicator color="#0f172a" style={styles.listLoadingFooter} /> : null}
       updateCellsBatchingPeriod={32}
       windowSize={7}
@@ -4630,6 +4799,7 @@ const MoveSelectionModal = ({
 }) => {
   const [searchText, setSearchText] = useState("");
   const notebookOptions = flattenNotebooks(notebooks);
+  const selectedScroll = useAutoCenterSelectedScrollRow(visible, selectedNotebookId);
 
   useEffect(() => {
     if (visible) {
@@ -4670,7 +4840,12 @@ const MoveSelectionModal = ({
               ) : null}
             </View>
           </View>
-          <ScrollView contentContainerStyle={styles.moveSelectionList} style={styles.listActionSheetScroll}>
+          <ScrollView
+            contentContainerStyle={styles.moveSelectionList}
+            onLayout={selectedScroll.onViewportLayout}
+            ref={selectedScroll.scrollRef}
+            style={styles.listActionSheetScroll}
+          >
             <NotebookTreeOptionRows
               collapsible={false}
               compact
@@ -4683,6 +4858,7 @@ const MoveSelectionModal = ({
               showDepthPrefix={false}
               showMemoCount={false}
               selectedNotebookId={selectedNotebookId}
+              onRowLayout={selectedScroll.onRowLayout}
             />
             {isMoving ? <ActivityIndicator color="#0f172a" style={styles.listLoadingFooter} /> : null}
           </ScrollView>
@@ -4818,6 +4994,7 @@ const NotebookTreeOptionRows = ({
   disabled = false,
   emptyIconSize,
   notebooks,
+  onRowLayout,
   onSelect,
   options,
   searchText,
@@ -4830,6 +5007,7 @@ const NotebookTreeOptionRows = ({
   disabled?: boolean;
   emptyIconSize: number;
   notebooks: Notebook[];
+  onRowLayout?: (notebookId: string, event: LayoutChangeEvent) => void;
   onSelect: (notebookId: string) => void;
   options: NotebookOption[];
   searchText: string;
@@ -4872,6 +5050,7 @@ const NotebookTreeOptionRows = ({
       {visibleNotebookOptions.map(({ depth, notebook }) => (
         <View
           key={notebook.id}
+          onLayout={onRowLayout ? (event) => onRowLayout(notebook.id, event) : undefined}
           style={[
             styles.moveNotebookRow,
             compact && styles.moveNotebookRowCompact,
@@ -5158,6 +5337,9 @@ const filterNotebookOptions = (options: NotebookOption[], searchText: string) =>
   return options.filter(({ notebook }) => notebook.name.toLowerCase().includes(query) || (notebook.slug || "").toLowerCase().includes(query));
 };
 
+const filterNotebookOptionsById = (options: NotebookOption[], visibleIds: ReadonlySet<string>) =>
+  options.filter(({ notebook }) => visibleIds.has(notebook.id));
+
 const getNotebookParentIdSet = (notebooks: Notebook[]) => {
   const notebookIds = new Set(notebooks.map((notebook) => notebook.id));
   const parentIds = new Set<string>();
@@ -5274,6 +5456,41 @@ const getMobileSystemInfoText = (localePreference: MobileLocaleMode) =>
         version: "版本",
       };
 
+const getMobileSystemInfoItems = (localePreference: MobileLocaleMode) => {
+  const copy = getMobileSystemInfoText(localePreference);
+  const resolvedLocale = getResolvedMobileLocale(localePreference);
+
+  return [
+    { label: copy.version, value: `v${MOBILE_APP_VERSION}` },
+    { label: copy.build, value: __DEV__ ? "development" : "production" },
+    { label: copy.platform, value: Platform.OS },
+    { label: copy.platformVersion, value: String(Platform.Version) },
+    { label: copy.language, value: localePreference === "system" ? `${resolvedLocale} (${copy.followSystem})` : resolvedLocale },
+    { label: copy.timeZone, value: Intl.DateTimeFormat().resolvedOptions().timeZone || copy.unknown },
+    { label: copy.installMode, value: formatExecutionEnvironment(Constants.executionEnvironment, localePreference) },
+  ];
+};
+
+const buildMobileFeedbackUrl = (localePreference: MobileLocaleMode) => {
+  const english = isEnglishMobileLocale(localePreference);
+
+  return buildGitHubFeedbackUrl({
+    contentHeading: english ? "Feedback" : "反馈内容",
+    contentPrompt: english
+      ? "Describe the problem, steps to reproduce it, or the feature you would like to see."
+      : "请描述遇到的问题、复现步骤，或你希望增加的功能。",
+    privacyNotice: english
+      ? "GitHub Issues are public. Do not include passwords, tokens, instance URLs, or private note content."
+      : "GitHub Issue 公开可见，请勿提交密码、Token、实例地址或私人笔记内容。",
+    systemInfo: getMobileSystemInfoItems(localePreference),
+    systemInfoHeading: english ? "System information" : "系统信息",
+    systemInfoNotice: english
+      ? "The following information was generated by EdgeEver to help diagnose the issue."
+      : "以下信息由 EdgeEver 自动生成，可帮助定位问题。",
+    titlePrefix: english ? "[Feedback] " : "[反馈] ",
+  });
+};
+
 const formatDate = (value: string, localePreference: MobileLocaleMode = "system") =>
   new Intl.DateTimeFormat(getResolvedMobileLocale(localePreference), {
     month: "2-digit",
@@ -5368,6 +5585,15 @@ const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
   reader.readAsDataURL(blob);
 });
 
+const createMobileImageUploadId = () =>
+  `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+const createLocalImagePreviewDataUrl = async (asset: { mimeType?: string | null; uri: string }) => {
+  const file = new ExpoFile(asset.uri);
+  const mimeType = asset.mimeType || file.type || "application/octet-stream";
+  return `data:${mimeType};base64,${await file.base64()}`;
+};
+
 const appendResourceMarkdown = (
   currentMarkdown: string,
   resource: {
@@ -5381,45 +5607,6 @@ const appendResourceMarkdown = (
   const trimmed = currentMarkdown.trimEnd();
 
   return trimmed ? `${trimmed}\n\n${markdown}\n` : `${markdown}\n`;
-};
-
-const prepareUploadAsset = async (
-  asset: DocumentPickerAsset,
-  imageCompressionEnabled: boolean
-): Promise<{ uri: string; name: string; type: string }> => {
-  const mimeType = asset.mimeType || "application/octet-stream";
-  const filename = asset.name || "upload";
-
-  if (!imageCompressionEnabled || !COMPRESSIBLE_IMAGE_TYPES.has(mimeType)) {
-    return {
-      uri: asset.uri,
-      name: filename,
-      type: mimeType,
-    };
-  }
-
-  try {
-    const { manipulateAsync, SaveFormat } = await import("expo-image-manipulator");
-    const measured = await manipulateAsync(asset.uri, [], { compress: 1, format: SaveFormat.JPEG });
-    const maxEdge = Math.max(measured.width, measured.height);
-    const resizeAction = maxEdge > MAX_COMPRESSED_IMAGE_EDGE ? [{ resize: getCompressedImageSize(measured.width, measured.height) }] : [];
-    const compressed = await manipulateAsync(asset.uri, resizeAction, {
-      compress: IMAGE_COMPRESSION_QUALITY,
-      format: SaveFormat.WEBP,
-    });
-
-    return {
-      uri: compressed.uri,
-      name: toCompressedImageFilename(filename),
-      type: "image/webp",
-    };
-  } catch {
-    return {
-      uri: asset.uri,
-      name: filename,
-      type: mimeType,
-    };
-  }
 };
 
 const createOptimisticMemo = (
@@ -5574,24 +5761,6 @@ const markdownToLocalText = (markdown: string) =>
     .replace(/[`*_>#~-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-
-const getCompressedImageSize = (width: number, height: number) => {
-  if (width >= height) {
-    return { width: MAX_COMPRESSED_IMAGE_EDGE };
-  }
-
-  return { height: MAX_COMPRESSED_IMAGE_EDGE };
-};
-
-const toCompressedImageFilename = (filename: string) => {
-  const trimmed = filename.trim();
-
-  if (!trimmed) {
-    return "image.webp";
-  }
-
-  return trimmed.replace(/\.[^.]+$/, "") + ".webp";
-};
 
 const getTokenScopeLabel = (scope: string) => {
   const labels: Record<string, string> = {
@@ -5838,6 +6007,12 @@ const baseWorkspaceStyles = StyleSheet.create({
     color: "#1e293b",
     fontSize: 14,
     fontWeight: "700",
+  },
+  settingsFeedbackCopy: {
+    flex: 1,
+  },
+  settingsFeedbackIcon: {
+    backgroundColor: "#f1f5f9",
   },
   settingsDetailList: {
     gap: 16,
@@ -6437,10 +6612,97 @@ const baseWorkspaceStyles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 16,
   },
-  memoListLoadingText: {
+  memoListLoadingCard: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderColor: "#a7f3d0",
+    borderRadius: 8,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 34,
+  },
+  memoListLoadingTitle: {
+    color: "#0f172a",
+    fontSize: 16,
+    fontWeight: "800",
+    marginTop: 14,
+  },
+  memoListLoadingDescription: {
     color: "#64748b",
-    fontSize: 14,
-    paddingHorizontal: 8,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 7,
+    maxWidth: 300,
+    textAlign: "center",
+  },
+  memoSyncBanner: {
+    alignItems: "center",
+    backgroundColor: "#ecfdf5",
+    borderColor: "#a7f3d0",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  memoSyncBannerContent: {
+    flex: 1,
+  },
+  memoSyncBannerTitle: {
+    color: "#065f46",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  memoSyncBannerDescription: {
+    color: "#047857",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  memoSyncProgressTrack: {
+    backgroundColor: "#d1fae5",
+    borderRadius: 999,
+    height: 4,
+    marginTop: 10,
+    overflow: "hidden",
+    width: "100%",
+  },
+  memoSyncProgressFill: {
+    backgroundColor: "#059669",
+    borderRadius: 999,
+    height: "100%",
+  },
+  memoSyncErrorBanner: {
+    alignItems: "center",
+    backgroundColor: "#fffbeb",
+    borderColor: "#fcd34d",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  memoSyncErrorBannerTitle: {
+    color: "#451a03",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  memoSyncErrorBannerDescription: {
+    color: "#92400e",
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  memoSyncErrorRetryButton: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 5,
+    paddingHorizontal: 4,
+    paddingVertical: 8,
   },
   memoListErrorCard: {
     alignItems: "center",
@@ -7343,7 +7605,6 @@ const baseWorkspaceStyles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#10b981",
     borderRadius: 24,
-    bottom: 16,
     elevation: 6,
     height: 48,
     justifyContent: "center",

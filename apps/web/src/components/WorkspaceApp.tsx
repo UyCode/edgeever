@@ -38,6 +38,7 @@ import {
 } from "@/lib/mobile-editor";
 import { cn } from "@/lib/utils";
 import { createExcerpt, docToText, getNotebookDescendantIds, type Notebook, type AuthUser, type MemoSummary, type MemoDetail } from "@edgeever/shared";
+import { toggleMobileMemoSelection } from "@edgeever/shared/mobile-ui";
 import type {
   Pane,
   MemoView,
@@ -67,7 +68,6 @@ import {
   readMemoListWidthPreference,
   writeMemoListWidthPreference,
   clampMemoListWidth,
-  toggleMemoSelection,
   getNotebookDropSortOrder,
   buildNotebookTree,
   notebookTreeContainsId,
@@ -2461,7 +2461,7 @@ export const WorkspaceApp = ({
                 setMemoSelectionMode(true);
                 setSelectedMemoIds((current) => {
                   if (!rangeMemoIds?.length) {
-                    return toggleMemoSelection(current, memoId);
+                    return toggleMobileMemoSelection(current, memoId);
                   }
                   const next = new Set(current);
                   for (const rangeMemoId of rangeMemoIds) {
