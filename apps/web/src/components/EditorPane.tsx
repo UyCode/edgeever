@@ -51,6 +51,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditorToolbar } from "./EditorToolbar";
 import { ThemeToggle } from "./ThemeToggle";
 import { RevisionHistoryDialog } from "./dialogs/RevisionHistoryDialog";
@@ -2313,16 +2314,24 @@ const RichEditorPane = ({
               </button>
             </div>
             <div className="hidden items-center gap-1 lg:flex">
-              <Button
-                size="icon"
-                variant={desktopFocusMode ? "soft" : "ghost"}
-                title={t(desktopFocusMode ? "editor.exitFocusMode" : "editor.enterFocusMode")}
-                aria-label={t(desktopFocusMode ? "editor.exitFocusMode" : "editor.enterFocusMode")}
-                aria-pressed={desktopFocusMode}
-                onClick={onToggleDesktopFocusMode}
-              >
-                {desktopFocusMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-              </Button>
+              <TooltipProvider delayDuration={350} skipDelayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant={desktopFocusMode ? "soft" : "ghost"}
+                      aria-label={t(desktopFocusMode ? "editor.exitFocusMode" : "editor.enterFocusMode")}
+                      aria-pressed={desktopFocusMode}
+                      onClick={onToggleDesktopFocusMode}
+                    >
+                      {desktopFocusMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {t(desktopFocusMode ? "editor.exitFocusMode" : "editor.focusMode")}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <Button size="icon" variant="ghost" title="上一条笔记" aria-label="上一条笔记" onClick={onOpenPreviousMemo} disabled={!hasPreviousMemo}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>

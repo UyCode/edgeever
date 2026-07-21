@@ -467,6 +467,7 @@ export const zhCN = {
     backToList: "返回列表",
     previousMemo: "上一条笔记",
     nextMemo: "下一条笔记",
+    focusMode: "专注模式",
     enterFocusMode: "进入专注模式",
     exitFocusMode: "退出专注模式",
     updatedAt: "更新于 {{time}}",
