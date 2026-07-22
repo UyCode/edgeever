@@ -41,6 +41,7 @@ The public demo resets every Monday at 1:00 AM (China Standard Time) and restore
 - Unlimited nested notebooks.
 - Rich text editing.
 - Switch between Markdown source and rich text views on desktop.
+- Mermaid diagrams rendered from standard fenced code blocks on the Web and native app, with editable source preserved across rich text and Markdown views.
 - Note version history for reviewing previous content changes.
 - Local browser-side image compression before upload, often reducing screenshots and large photos by about 50%-90%.
 - Batch note merging.

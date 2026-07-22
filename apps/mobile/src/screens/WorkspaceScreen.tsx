@@ -68,6 +68,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Text as RNText,
   type StyleProp,
   Switch,
   useWindowDimensions,
@@ -125,6 +126,8 @@ import { showEdgeEverKeyboard } from "../../modules/edgeever-keyboard";
 import LocalTiptapEditor, { type LocalTiptapEditorRef } from "../components/LocalTiptapEditor";
 import { resolveMobileThemeStyles, useMobileTheme, type MobileResolvedTheme } from "../lib/mobile-theme";
 import { MobileUpdateCard } from "../components/MobileUpdateCard";
+import { MobileMermaidDiagram, MobileMermaidProvider } from "../components/MobileMermaid";
+import { getMobileMarkdownFenceLanguage, trimMobileMarkdownFenceContent } from "../lib/mobile-mermaid";
 
 const ALL_NOTES_ID = "all";
 const DEFAULT_MEMO_TITLE = "无标题笔记";
@@ -4025,6 +4028,7 @@ const MemoDetailModal = ({
 }) => {
   const { session } = useSession();
   const { resolvedTheme } = useMobileTheme();
+  const { resolvedLocale } = useMobileLocale();
   const { width: viewportWidth } = useWindowDimensions();
   const safeAreaInsets = useSafeAreaInsets();
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -4069,6 +4073,21 @@ const MemoDetailModal = ({
     };
 
     return {
+      fence: (node, _children, _parents, markdownStyles, inheritedStyles = {}) => {
+        const language = getMobileMarkdownFenceLanguage((node as ASTNode & { sourceInfo?: string }).sourceInfo);
+        const content = trimMobileMarkdownFenceContent(node.content);
+        if (language === "mermaid") {
+          return (
+            <MobileMermaidDiagram
+              key={node.key}
+              locale={resolvedLocale}
+              source={content}
+              theme={resolvedTheme}
+            />
+          );
+        }
+        return <RNText key={node.key} style={[inheritedStyles, markdownStyles.fence]}>{content}</RNText>;
+      },
       image: (node, _children, _parents, markdownStyles) => (
         <AuthenticatedResourceImage
           alt={String(node.attributes.alt ?? "")}
@@ -4101,7 +4120,7 @@ const MemoDetailModal = ({
       td: (node, children, parents, markdownStyles) => renderTableCell(node, children, parents, markdownStyles, false),
       th: (node, children, parents, markdownStyles) => renderTableCell(node, children, parents, markdownStyles, true),
     };
-  }, [session, viewportWidth]);
+  }, [resolvedLocale, resolvedTheme, session, viewportWidth]);
   const detailText = memo?.contentMarkdown || memo?.contentText || "没有正文内容";
   const searchMatches = useMemo(() => getTextSearchMatches(detailText, searchQuery), [detailText, searchQuery]);
   const searchMatchLabel = searchQuery.trim() ? `${searchMatches.length > 0 ? activeMatchIndex + 1 : 0}/${searchMatches.length}` : "0/0";
@@ -4221,7 +4240,9 @@ const MemoDetailModal = ({
             {searchOpen && searchQuery.trim() ? (
               <HighlightedDetailText activeIndex={activeMatchIndex} matches={searchMatches} text={detailText} />
             ) : (
-              <Markdown rules={detailMarkdownRules} style={themedDetailMarkdownStyles}>{detailText}</Markdown>
+              <MobileMermaidProvider theme={resolvedTheme}>
+                <Markdown rules={detailMarkdownRules} style={themedDetailMarkdownStyles}>{detailText}</Markdown>
+              </MobileMermaidProvider>
             )}
           </ScrollView>
         ) : (

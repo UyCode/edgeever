@@ -346,6 +346,42 @@ const DEMO_SEED_MEMOS = [
       "## Agent-ready：REST API 与 MCP\n\nEdgeEver 提供 REST API、OpenAPI schema 和 MCP endpoint。AI Agent 可以读取笔记本、创建笔记、整理标签，并把导入资料迁移到你的自托管实例。\n\n### 从这里开始\n\n- OpenAPI schema：`/api/openapi.json`\n- MCP endpoint：`/mcp`\n\n一个很小的 Agent 工作流是：先读取「功能演示」笔记本，再把这两条合并素材整理成一条带结论的长期笔记。",
   },
   {
+    id: "memo_demo_mermaid_flowchart",
+    notebookId: "nb_demo_features",
+    title: "Mermaid 示例：笔记整理流程",
+    tags: ["mermaid", "flowchart", "demo"],
+    isPinned: true,
+    markdown:
+      "## 笔记整理流程\n\n流程图适合表达判断、分支和处理步骤。进入编辑模式后，可以直接修改下方 Mermaid 源码并查看预览。\n\n```mermaid\nflowchart TD\n  A[\"记录灵感\"] --> B{\"需要立即处理？\"}\n  B -- \"是\" --> C[\"加入今日行动\"]\n  B -- \"否\" --> D[\"放入等待分类\"]\n  D --> E{\"是否属于长期主题？\"}\n  E -- \"是\" --> F[\"移动到主题笔记本\"]\n  E -- \"否\" --> G[\"添加标签并归档\"]\n  C --> H[\"完成后沉淀结论\"]\n  F --> H\n```\n\n修改节点文字或连线后，图表会自动重新渲染；Markdown 中仍保存标准的 `mermaid` 围栏代码块。",
+  },
+  {
+    id: "memo_demo_mermaid_sequence",
+    notebookId: "nb_demo_features",
+    title: "Mermaid 示例：离线同步时序",
+    tags: ["mermaid", "sequence", "sync"],
+    isPinned: false,
+    markdown:
+      "## 离线同步时序\n\n时序图适合说明多个角色或系统之间按时间发生的交互。\n\n```mermaid\nsequenceDiagram\n  actor U as 用户\n  participant A as EdgeEver App\n  participant Q as 本地同步队列\n  participant API as EdgeEver API\n  participant DB as D1\n\n  U->>A: 编辑并保存笔记\n  A->>Q: 写入本地草稿与待同步记录\n  A-->>U: 立即显示“已保存到本地”\n  Q->>API: 网络恢复后提交更新\n  API->>DB: 校验版本并持久化\n  DB-->>API: 返回新版本\n  API-->>Q: 同步成功\n  Q-->>A: 清除待同步记录\n```\n\n这种图很适合记录 API 调用、登录流程、消息队列和跨服务协作。",
+  },
+  {
+    id: "memo_demo_mermaid_state",
+    notebookId: "nb_demo_features",
+    title: "Mermaid 示例：笔记生命周期",
+    tags: ["mermaid", "state-diagram", "workflow"],
+    isPinned: false,
+    markdown:
+      "## 笔记生命周期\n\n状态图强调一个对象会处于哪些状态，以及什么事件会触发状态变化。\n\n```mermaid\nstateDiagram-v2\n  [*] --> 草稿\n  草稿 --> 待同步: 离线保存\n  草稿 --> 已保存: 在线保存\n  待同步 --> 已保存: 同步成功\n  待同步 --> 冲突: 服务端版本已变化\n  冲突 --> 草稿: 选择本地版本继续编辑\n  冲突 --> 已保存: 接受服务端版本\n  已保存 --> 已归档: 归档\n  已归档 --> 已保存: 恢复\n  已保存 --> 回收站: 删除\n  回收站 --> 已保存: 恢复\n  回收站 --> [*]: 永久删除\n```\n\n它也适合描述订单、审批单、任务或发布流程。",
+  },
+  {
+    id: "memo_demo_mermaid_gantt",
+    notebookId: "nb_demo_features",
+    title: "Mermaid 示例：一周发布计划",
+    tags: ["mermaid", "gantt", "planning"],
+    isPinned: false,
+    markdown:
+      "## 一周发布计划\n\n甘特图可以把任务、依赖关系和时间安排放在一张图里。\n\n```mermaid\ngantt\n  title EdgeEver 功能发布计划\n  dateFormat YYYY-MM-DD\n  axisFormat %m-%d\n\n  section 开发\n  完成 Mermaid 渲染 :done, dev1, 2026-07-20, 2d\n  补齐 App 编辑能力 :done, dev2, after dev1, 1d\n\n  section 验证\n  自动化测试 :active, qa1, after dev2, 1d\n  Android 与 Web 验收 :qa2, after qa1, 1d\n\n  section 发布\n  整理说明与发布 :milestone, release, after qa2, 0d\n```\n\n日期和持续时间都是普通文本，因此可以直接在笔记里维护轻量项目计划。",
+  },
+  {
     id: "memo_demo_mobile",
     notebookId: "nb_personal",
     title: "移动端与 PWA",

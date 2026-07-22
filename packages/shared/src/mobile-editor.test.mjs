@@ -16,6 +16,7 @@ describe("mobile editor contract", () => {
   test("keeps the core toolbar compact and ordered by editing frequency", () => {
     expect(MOBILE_EDITOR_TOOLBAR_ACTIONS.map(({ id }) => id)).toEqual([
       "image",
+      "mermaid",
       "bold",
       "bulletList",
       "blockquote",
@@ -43,6 +44,7 @@ describe("mobile editor contract", () => {
     expect(getMobileEditorTableMenuCopy("zh-CN")).toEqual({ title: "表格操作", close: "关闭" });
     expect(getMobileEditorTableMenuCopy("en-US")).toEqual({ title: "Table actions", close: "Close" });
     expect(getMobileEditorToolbarActionLabel("bulletList", "en-US")).toBe("Bullet list");
+    expect(getMobileEditorToolbarActionLabel("mermaid", "zh-CN")).toBe("插入 Mermaid 图表");
     expect(getMobileEditorToolbarActionLabel("insertTable", "zh-CN")).toBe("插入表格");
     expect(getMobileEditorImageScaleLabel("zh-CN")).toBe("图片显示尺寸");
     expect(getMobileEditorImageWidthPresetLabel("medium", "en-US")).toBe("Medium");

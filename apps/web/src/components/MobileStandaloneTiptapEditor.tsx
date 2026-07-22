@@ -39,6 +39,7 @@ import {
   type MobileEditorSaveState,
 } from "@/lib/mobile-editor-standalone";
 import { getMemoUpdateQueueId, isMemoUpdateAlreadyApplied, queueMemoUpdate, shouldQueueMemoSaveError } from "@/lib/sync-queue";
+import { EdgeEverCodeBlock } from "@/lib/code-block";
 
 type ListNotebooksResponse = {
   notebooks: Notebook[];
@@ -167,7 +168,8 @@ export const MobileStandaloneTiptapEditor = ({
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ codeBlock: false }),
+      EdgeEverCodeBlock,
       Image.configure({
         allowBase64: false,
         inline: false,
@@ -871,9 +873,23 @@ export const MobileStandaloneTiptapEditor = ({
           boldActive={Boolean(editor?.isActive("bold"))}
           bulletListActive={Boolean(editor?.isActive("bulletList"))}
           blockquoteActive={Boolean(editor?.isActive("blockquote"))}
+          mermaidActive={Boolean(editor?.isActive("codeBlock", { language: "mermaid" }))}
           tableActive={tableActive}
           tableHeaderActive={tableHeaderActive}
           onPickImage={() => imageInputRef.current?.click()}
+          onInsertMermaid={() => runEditorCommand(() => {
+            if (!editor) {
+              return false;
+            }
+            if (editor.isActive("codeBlock")) {
+              return editor.chain().focus().updateAttributes("codeBlock", { language: "mermaid" }).run();
+            }
+            return editor.chain().focus().insertContent({
+              type: "codeBlock",
+              attrs: { language: "mermaid" },
+              content: [{ type: "text", text: "flowchart LR\n  A[Start] --> B[End]" }],
+            }).run();
+          })}
           onToggleBold={() => runEditorCommand(() => editor?.chain().focus().toggleBold().run() ?? false)}
           onToggleBulletList={() => runEditorCommand(() => editor?.chain().focus().toggleBulletList().run() ?? false)}
           onToggleBlockquote={() => runEditorCommand(() => editor?.chain().focus().toggleBlockquote().run() ?? false)}

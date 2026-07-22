@@ -1,4 +1,4 @@
-import { Bold, Check, ChevronDown, ImagePlus, List, Minus, Quote, Table2 } from "lucide-react";
+import { Bold, Check, ChevronDown, ImagePlus, List, Minus, Quote, Table2, Workflow } from "lucide-react";
 import {
   MOBILE_EDITOR_TOOLBAR_ACTIONS,
   getMobileEditorTableMenuCopy,
@@ -40,9 +40,11 @@ export const MobileEditorToolbar = ({
   boldActive,
   bulletListActive,
   blockquoteActive,
+  mermaidActive,
   tableActive,
   tableHeaderActive,
   onPickImage,
+  onInsertMermaid,
   onToggleBold,
   onToggleBulletList,
   onToggleBlockquote,
@@ -53,9 +55,11 @@ export const MobileEditorToolbar = ({
   boldActive: boolean;
   bulletListActive: boolean;
   blockquoteActive: boolean;
+  mermaidActive: boolean;
   tableActive: boolean;
   tableHeaderActive: boolean;
   onPickImage: () => void;
+  onInsertMermaid: () => void;
   onToggleBold: () => void;
   onToggleBulletList: () => void;
   onToggleBlockquote: () => void;
@@ -66,6 +70,7 @@ export const MobileEditorToolbar = ({
   const tableMenuCopy = getMobileEditorTableMenuCopy("zh-CN");
   const icons: Record<MobileEditorToolbarActionId, ReactNode> = {
     image: <ImagePlus aria-hidden="true" size={18} strokeWidth={2} />,
+    mermaid: <Workflow aria-hidden="true" size={18} strokeWidth={2} />,
     bold: <Bold aria-hidden="true" size={17} strokeWidth={2.4} />,
     bulletList: <List aria-hidden="true" size={18} strokeWidth={2.2} />,
     blockquote: <Quote aria-hidden="true" size={17} strokeWidth={2.2} />,
@@ -80,6 +85,7 @@ export const MobileEditorToolbar = ({
   };
   const handlers: Record<MobileEditorToolbarActionId, () => void> = {
     image: onPickImage,
+    mermaid: onInsertMermaid,
     bold: onToggleBold,
     bulletList: onToggleBulletList,
     blockquote: onToggleBlockquote,
@@ -96,6 +102,7 @@ export const MobileEditorToolbar = ({
     bold: boldActive,
     bulletList: bulletListActive,
     blockquote: blockquoteActive,
+    mermaid: mermaidActive,
   };
 
   useEffect(() => {

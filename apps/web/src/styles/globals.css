@@ -261,6 +261,69 @@ textarea {
   color: inherit;
 }
 
+.ProseMirror .edgeever-code-block,
+.ProseMirror .edgeever-mermaid-code-block {
+  margin: 0 0 1rem;
+}
+
+.ProseMirror .edgeever-code-source {
+  overflow-x: auto;
+  border: 1px solid #d9eadf;
+  border-radius: 8px;
+  background: #f7fbf8;
+  padding: 0.9rem 1rem;
+  color: #1e293b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.875em;
+  white-space: pre;
+}
+
+.ProseMirror .edgeever-mermaid-code-block {
+  overflow: hidden;
+  border: 1px solid #d9eadf;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.ProseMirror .edgeever-mermaid-preview {
+  display: flex;
+  min-height: 8rem;
+  align-items: center;
+  justify-content: center;
+  overflow-x: auto;
+  padding: 1rem;
+  background: #fff;
+}
+
+.ProseMirror .edgeever-mermaid-message,
+.ProseMirror .edgeever-mermaid-error {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.ProseMirror .edgeever-mermaid-error {
+  color: #be123c;
+}
+
+.ProseMirror .edgeever-mermaid-svg {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+.ProseMirror .edgeever-mermaid-svg svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.ProseMirror .edgeever-mermaid-source {
+  border: 0;
+  border-top: 1px solid #d9eadf;
+  border-radius: 0;
+}
+
 /* Highlight.js-compatible token classes emitted by Tiptap/lowlight. */
 .ProseMirror pre .hljs-comment,
 .ProseMirror pre .hljs-quote {
@@ -801,6 +864,25 @@ textarea {
   border-color: #166534;
   background: #13261a;
   color: #cbd5e1;
+}
+
+:root.dark .ProseMirror .edgeever-mermaid-code-block {
+  border-color: #166534;
+  background: #13261a;
+}
+
+:root.dark .ProseMirror .edgeever-code-source {
+  border-color: #166534;
+  background: #13261a;
+  color: #cbd5e1;
+}
+
+:root.dark .ProseMirror .edgeever-mermaid-preview {
+  background: #f8fafc;
+}
+
+:root.dark .ProseMirror .edgeever-mermaid-source {
+  border-top-color: #166534;
 }
 
 :root.dark .markdown-content {

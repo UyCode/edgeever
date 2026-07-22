@@ -2,7 +2,6 @@ import { useRef, useState, useEffect, useCallback, useMemo, type PointerEvent as
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { NodeViewWrapper, ReactNodeViewRenderer, useEditor, EditorContent, type Editor, type NodeViewProps } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import { TableKit } from "@tiptap/extension-table";
@@ -75,7 +74,7 @@ import {
   clampImageWidth,
   parseImageWidth,
 } from "@edgeever/shared/image-display";
-import { codeBlockLowlight } from "@/lib/code-block";
+import { codeBlockLowlight, EdgeEverCodeBlock } from "@/lib/code-block";
 import { compressImageForUpload } from "@/lib/image-compression";
 import { localDb, type MemoUpdateSyncPayload } from "@/lib/local-db";
 import { getMemoUpdateQueueId, isMemoUpdateAlreadyApplied, queueMemoUpdate, shouldQueueMemoSaveError } from "@/lib/sync-queue";
@@ -1329,7 +1328,7 @@ const RichEditorPane = ({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ codeBlock: false }),
-      CodeBlockLowlight.configure({ lowlight: codeBlockLowlight, defaultLanguage: "plaintext" }),
+      EdgeEverCodeBlock.configure({ lowlight: codeBlockLowlight, defaultLanguage: "plaintext" }),
       ResizableImage.configure({
         allowBase64: false,
         inline: false,

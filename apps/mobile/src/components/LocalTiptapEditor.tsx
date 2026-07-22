@@ -1,6 +1,8 @@
 'use dom';
 
+import "mermaid/dist/mermaid.min.js";
 import Image from "@tiptap/extension-image";
+import CodeBlock from "@tiptap/extension-code-block";
 import Placeholder from "@tiptap/extension-placeholder";
 import { TableKit } from "@tiptap/extension-table";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
@@ -49,6 +51,7 @@ export interface LocalTiptapEditorRef extends DOMImperativeFactory {
 }
 
 type LocalTiptapEditorProps = {
+  mode?: "editor";
   autoFocus?: boolean;
   baseUrl: string;
   content: EditorDoc;
@@ -63,11 +66,148 @@ type LocalTiptapEditorProps = {
   theme: "light" | "dark";
 };
 
+type MermaidRendererProps = {
+  diagramsJson: string;
+  dom?: DOMProps;
+  mode: "mermaid-renderer";
+  onRendered: (resultsJson: string) => Promise<void>;
+  theme: "light" | "dark";
+};
+
 const CHANGE_IDLE_MS = 500;
 const TRANSIENT_IMAGE_UPLOAD_META = "edgeeverImageUploadPlaceholder";
 const ignoreSearchResult = async () => undefined;
 
-export default function LocalTiptapEditor(props: LocalTiptapEditorProps) {
+export default function LocalTiptapEditor(props: LocalTiptapEditorProps | MermaidRendererProps) {
+  return props.mode === "mermaid-renderer"
+    ? <MermaidRenderRuntime {...props} />
+    : <LocalTiptapEditorImpl {...props} />;
+}
+
+const MermaidRenderRuntime = (props: MermaidRendererProps) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    const renderDiagrams = async () => {
+      let sources: string[] = [];
+      try {
+        const parsed = JSON.parse(props.diagramsJson) as unknown;
+        sources = Array.isArray(parsed)
+          ? parsed.filter((source): source is string => typeof source === "string" && source.trim().length > 0)
+          : [];
+      } catch {
+        sources = [];
+      }
+
+      const mermaid = await loadMermaid();
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+        suppressErrorRendering: true,
+        theme: props.theme === "dark" ? "dark" : "neutral",
+        flowchart: { htmlLabels: false },
+      });
+
+      const results: Array<{ source: string; svg: string | null }> = [];
+      for (const source of sources) {
+        try {
+          const valid = await mermaid.parse(source, { suppressErrors: true });
+          if (!valid) {
+            throw new Error("Invalid Mermaid diagram");
+          }
+          mermaidRenderSequence += 1;
+          const { svg } = await mermaid.render(`edgeever-mobile-mermaid-${mermaidRenderSequence}`, source);
+          results.push({ source, svg: inlineMermaidSvgStyles(svg) });
+        } catch {
+          results.push({ source, svg: null });
+        }
+      }
+
+      if (!cancelled) {
+        await props.onRendered(JSON.stringify(results));
+      }
+    };
+
+    void renderDiagrams().catch(() => {
+      if (!cancelled) {
+        void props.onRendered("[]");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [props.diagramsJson, props.onRendered, props.theme]);
+
+  return null;
+};
+
+const inlineMermaidSvgStyles = (svg: string) => {
+  const container = document.createElement("div");
+  container.style.cssText = "position:fixed;left:-10000px;top:-10000px;visibility:hidden;";
+  container.innerHTML = svg;
+  document.body.append(container);
+
+  const root = container.querySelector("svg");
+  if (!root) {
+    container.remove();
+    return svg;
+  }
+
+  for (const foreignObject of root.querySelectorAll("foreignObject")) {
+    const label = foreignObject.textContent?.replace(/\s+/g, " ").trim();
+    if (!label) {
+      foreignObject.remove();
+      continue;
+    }
+    const x = Number.parseFloat(foreignObject.getAttribute("x") ?? "0");
+    const y = Number.parseFloat(foreignObject.getAttribute("y") ?? "0");
+    const width = Number.parseFloat(foreignObject.getAttribute("width") ?? "0");
+    const height = Number.parseFloat(foreignObject.getAttribute("height") ?? "0");
+    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("x", String(x + width / 2));
+    text.setAttribute("y", String(y + height / 2));
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("dominant-baseline", "central");
+    text.setAttribute("font-size", "16px");
+    text.textContent = label;
+    foreignObject.replaceWith(text);
+  }
+
+  const properties = [
+    "color",
+    "fill",
+    "fill-opacity",
+    "font-family",
+    "font-size",
+    "font-style",
+    "font-weight",
+    "opacity",
+    "stroke",
+    "stroke-dasharray",
+    "stroke-dashoffset",
+    "stroke-linecap",
+    "stroke-linejoin",
+    "stroke-opacity",
+    "stroke-width",
+    "text-anchor",
+  ] as const;
+
+  for (const element of root.querySelectorAll<SVGElement>("*")) {
+    const computed = getComputedStyle(element);
+    for (const property of properties) {
+      const value = computed.getPropertyValue(property);
+      if (value) {
+        element.setAttribute(property, value);
+      }
+    }
+  }
+
+  const serialized = new XMLSerializer().serializeToString(root);
+  container.remove();
+  return serialized;
+};
+
+function LocalTiptapEditorImpl(props: LocalTiptapEditorProps) {
   const [tableMenuOpen, setTableMenuOpen] = useState(false);
   const startedAtRef = useRef(performance.now());
   const changeTimerRef = useRef<number | null>(null);
@@ -88,11 +228,16 @@ export default function LocalTiptapEditor(props: LocalTiptapEditorProps) {
     () => createProtectedImageExtension(props.baseUrl, props.locale, (source) => onLoadResourceRef.current(source)),
     [props.baseUrl, props.locale]
   );
+  const mermaidCodeBlockExtension = useMemo(
+    () => createMobileCodeBlockExtension(props.locale, props.theme),
+    [props.locale, props.theme]
+  );
 
   const editor = useEditor({
     autofocus: props.autoFocus ? "end" : false,
     extensions: [
-      StarterKit,
+      StarterKit.configure({ codeBlock: false }),
+      mermaidCodeBlockExtension,
       protectedImageExtension,
       TableKit.configure({
         table: { renderWrapper: true },
@@ -257,6 +402,7 @@ export default function LocalTiptapEditor(props: LocalTiptapEditorProps) {
     editor,
     selector: ({ editor: activeEditor }) =>
       (activeEditor?.isActive("bold") ? MOBILE_EDITOR_ACTIVE_FLAGS.bold : 0) |
+      (activeEditor?.isActive("codeBlock", { language: "mermaid" }) ? MOBILE_EDITOR_ACTIVE_FLAGS.mermaid : 0) |
       (activeEditor?.isActive("bulletList") ? MOBILE_EDITOR_ACTIVE_FLAGS.bulletList : 0) |
       (activeEditor?.isActive("blockquote") ? MOBILE_EDITOR_ACTIVE_FLAGS.blockquote : 0) |
       (activeEditor?.isActive("table") ? MOBILE_EDITOR_ACTIVE_FLAGS.table : 0) |
@@ -323,6 +469,7 @@ export default function LocalTiptapEditor(props: LocalTiptapEditorProps) {
 
   const toolbarIcons: Record<MobileEditorToolbarActionId, ReactNode> = {
     image: <ImagePlusIcon />,
+    mermaid: <DiagramIcon />,
     bold: <BoldIcon />,
     bulletList: <ListIcon />,
     blockquote: <QuoteIcon />,
@@ -337,6 +484,20 @@ export default function LocalTiptapEditor(props: LocalTiptapEditorProps) {
   };
   const toolbarHandlers: Record<MobileEditorToolbarActionId, () => void> = {
     image: () => void insertImage(),
+    mermaid: () => {
+      if (!editor) {
+        return;
+      }
+      if (editor.isActive("codeBlock")) {
+        editor.chain().focus().updateAttributes("codeBlock", { language: "mermaid" }).run();
+        return;
+      }
+      editor.chain().focus().insertContent({
+        type: "codeBlock",
+        attrs: { language: "mermaid" },
+        content: [{ type: "text", text: "flowchart LR\n  A[Start] --> B[End]" }],
+      }).run();
+    },
     bold: () => editor?.chain().focus().toggleBold().run(),
     bulletList: () => editor?.chain().focus().toggleBulletList().run(),
     blockquote: () => editor?.chain().focus().toggleBlockquote().run(),
@@ -495,6 +656,15 @@ const BoldIcon = () => (
   </EditorIcon>
 );
 
+const DiagramIcon = () => (
+  <EditorIcon size={18} strokeWidth={2}>
+    <rect height="5" rx="1" width="7" x="2" y="3" />
+    <rect height="5" rx="1" width="7" x="15" y="16" />
+    <path d="M9 5.5h3a3 3 0 0 1 3 3v5a3 3 0 0 0 3 3" />
+    <path d="m15 13 3 3-3 3" />
+  </EditorIcon>
+);
+
 const ListIcon = () => (
   <EditorIcon size={18} strokeWidth={2.2}>
     <path d="M3 5h.01M3 12h.01M3 19h.01M8 5h13M8 12h13M8 19h13" />
@@ -575,6 +745,134 @@ const applyImageWidth = (
   element.dataset.width = String(width);
   return width;
 };
+
+let mermaidRenderSequence = 0;
+
+const loadMermaid = () => {
+  const mermaid = (globalThis as typeof globalThis & {
+    mermaid?: typeof import("mermaid")["default"];
+  }).mermaid;
+  if (!mermaid) {
+    return Promise.reject(new Error("Mermaid runtime unavailable"));
+  }
+  return Promise.resolve(mermaid);
+};
+
+const createMobileCodeBlockExtension = (
+  locale: "zh-CN" | "en-US",
+  theme: "light" | "dark"
+) => CodeBlock.extend({
+  addNodeView() {
+    return ({ node }) => {
+      const wrapper = document.createElement("div");
+      const preview = document.createElement("div");
+      const message = document.createElement("p");
+      const svgContainer = document.createElement("div");
+      const pre = document.createElement("pre");
+      const code = document.createElement("code");
+      preview.contentEditable = "false";
+      preview.className = "edgeever-mermaid-preview";
+      message.className = "edgeever-mermaid-message";
+      svgContainer.className = "edgeever-mermaid-svg";
+      svgContainer.setAttribute("role", "img");
+      svgContainer.setAttribute("aria-label", locale === "en-US" ? "Mermaid diagram preview" : "Mermaid 图表预览");
+      pre.append(code);
+      wrapper.append(preview, pre);
+
+      let currentNode = node;
+      let renderTimer: number | null = null;
+      let renderRequest = 0;
+
+      const clearRender = () => {
+        renderRequest += 1;
+        if (renderTimer !== null) {
+          window.clearTimeout(renderTimer);
+          renderTimer = null;
+        }
+      };
+
+      const renderNode = () => {
+        clearRender();
+        const language = typeof currentNode.attrs.language === "string"
+          ? currentNode.attrs.language.toLowerCase()
+          : "plaintext";
+        const isMermaid = language === "mermaid";
+        wrapper.className = isMermaid ? "edgeever-mermaid-code-block" : "edgeever-code-block";
+        wrapper.dataset.language = language;
+        preview.hidden = !isMermaid;
+        code.setAttribute("aria-label", isMermaid
+          ? (locale === "en-US" ? "Mermaid source" : "Mermaid 源码")
+          : (locale === "en-US" ? "Code source" : "代码源码"));
+        if (!isMermaid) {
+          preview.replaceChildren();
+          return;
+        }
+
+        const source = currentNode.textContent.trim();
+        if (!source) {
+          message.className = "edgeever-mermaid-message";
+          message.textContent = locale === "en-US" ? "Enter Mermaid source below." : "请在下方输入 Mermaid 源码。";
+          preview.replaceChildren(message);
+          return;
+        }
+
+        const activeRequest = renderRequest;
+        renderTimer = window.setTimeout(() => {
+          message.className = "edgeever-mermaid-message";
+          message.textContent = locale === "en-US" ? "Rendering diagram…" : "正在渲染图表…";
+          preview.replaceChildren(message);
+          void loadMermaid()
+            .then(async (mermaid) => {
+              mermaid.initialize({
+                startOnLoad: false,
+                securityLevel: "strict",
+                suppressErrorRendering: true,
+                theme: theme === "dark" ? "dark" : "neutral",
+              });
+              const valid = await mermaid.parse(source, { suppressErrors: true });
+              if (!valid) {
+                throw new Error("Invalid Mermaid diagram");
+              }
+              mermaidRenderSequence += 1;
+              return mermaid.render(`edgeever-mobile-editor-mermaid-${mermaidRenderSequence}`, source);
+            })
+            .then(({ svg }) => {
+              if (activeRequest !== renderRequest) {
+                return;
+              }
+              svgContainer.innerHTML = svg;
+              preview.replaceChildren(svgContainer);
+            })
+            .catch(() => {
+              if (activeRequest !== renderRequest) {
+                return;
+              }
+              message.className = "edgeever-mermaid-error";
+              message.textContent = locale === "en-US"
+                ? "Unable to render this diagram. Check its syntax."
+                : "无法渲染此图表，请检查语法。";
+              preview.replaceChildren(message);
+            });
+        }, 300);
+      };
+
+      renderNode();
+      return {
+        dom: wrapper,
+        contentDOM: code,
+        update: (updatedNode) => {
+          if (updatedNode.type !== currentNode.type) {
+            return false;
+          }
+          currentNode = updatedNode;
+          renderNode();
+          return true;
+        },
+        destroy: clearRender,
+      };
+    };
+  },
+});
 
 const createMobileImageSizeControls = (
   locale: "zh-CN" | "en-US",
@@ -977,6 +1275,15 @@ const getEditorStyles = (theme: "light" | "dark") => `
   .edgeever-editor-content pre { overflow-x: auto; border-radius: 10px; padding: 14px; background: #0f172a; color: #e2e8f0; }
   .edgeever-editor-content code { border-radius: 4px; padding: 2px 4px; background: ${theme === "dark" ? "#1e293b" : "#f1f5f9"}; }
   .edgeever-editor-content pre code { padding: 0; background: transparent; }
+  .edgeever-mermaid-code-block { margin: 18px 0; overflow: hidden; border: 1px solid ${theme === "dark" ? "#334155" : "#e2e8f0"}; border-radius: 12px; background: ${theme === "dark" ? "#111827" : "#fff"}; }
+  .edgeever-mermaid-code-block > pre { margin: 0; border-radius: 0; border-top: 1px solid ${theme === "dark" ? "#334155" : "#e2e8f0"}; }
+  .edgeever-mermaid-preview { display: flex; min-height: 116px; align-items: center; justify-content: center; overflow-x: auto; padding: 14px; background: ${theme === "dark" ? "#0f172a" : "#fff"}; }
+  .edgeever-mermaid-preview[hidden] { display: none; }
+  .edgeever-mermaid-svg { width: 100%; text-align: center; }
+  .edgeever-mermaid-svg svg { display: block; width: 100%; max-width: 100%; height: auto; max-height: 420px; margin: auto; }
+  .edgeever-mermaid-message, .edgeever-mermaid-error { margin: 0; font-size: 14px; line-height: 1.5; text-align: center; }
+  .edgeever-mermaid-message { color: ${theme === "dark" ? "#94a3b8" : "#64748b"}; }
+  .edgeever-mermaid-error { color: ${theme === "dark" ? "#fda4af" : "#be123c"}; }
   .edgeever-editor-content img { display: block; max-width: 100%; height: auto; margin: 14px auto; border-radius: 10px; }
   .edgeever-editor-content .tableWrapper { --mobile-table-column-width: clamp(5.5rem, calc((100vw - 3rem) / 3), 14rem); width: 100%; max-width: 100%; overflow-x: auto; margin-top: 20px; margin-right: auto; margin-bottom: 20px; margin-left: 0; border: 1px solid ${theme === "dark" ? "#334155" : "#d8d8d8"}; border-radius: 2px; background: ${theme === "dark" ? "#0f172a" : "#fff"}; overscroll-behavior-inline: contain; scrollbar-color: rgba(100, 116, 139, 0.28) transparent; }
   .edgeever-editor-content table { width: max-content; min-width: 100% !important; border-collapse: separate; border-spacing: 0; table-layout: fixed; }

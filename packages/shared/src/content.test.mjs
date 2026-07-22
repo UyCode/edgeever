@@ -58,3 +58,17 @@ describe("Markdown table conversion", () => {
     expect(resolveMemoContentDoc(legacyDoc, "Legacy note")).toBe(legacyDoc);
   });
 });
+
+describe("Mermaid Markdown conversion", () => {
+  const markdown = "```mermaid\nflowchart LR\n  A --> B\n```";
+
+  test("preserves Mermaid fenced code blocks through a Markdown round trip", () => {
+    const doc = markdownToDoc(markdown);
+
+    expect(doc.content[0]).toMatchObject({
+      type: "codeBlock",
+      attrs: { language: "mermaid" },
+    });
+    expect(docToMarkdown(doc)).toBe(markdown);
+  });
+});
