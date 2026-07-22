@@ -285,8 +285,9 @@ const DEMO_SEED_NOTEBOOKS = [
   { id: "nb_creative", parentId: null, name: "灵感创作", slug: "creative-ideas", icon: "notebook", color: "#db2777", sortOrder: 40 },
   { id: "nb_personal", parentId: null, name: "生活个人", slug: "personal-life", icon: "notebook", color: "#ea580c", sortOrder: 50 },
   { id: "nb_demo_features", parentId: "nb_projects", name: "功能演示", slug: "demo-features", icon: "notebook", color: "#0891b2", sortOrder: 21 },
+  { id: "nb_demo_features_en", parentId: "nb_projects", name: "Feature Demos", slug: "feature-demos", icon: "notebook", color: "#0e7490", sortOrder: 22 },
 ];
-const DEMO_SEED_MEMOS = [
+const DEMO_SEED_MEMOS_ZH = [
   {
     id: "memo_welcome",
     notebookId: "nb_inbox",
@@ -451,7 +452,117 @@ const DEMO_SEED_REVISIONS = [
     markdown:
       "## 会议决策记录\n\n- 先完成编辑器和表格能力\n- 再补充 Mermaid 图表\n- 最后统一整理发布说明\n\n这是会议初稿，后续版本补充了验证结果。",
   },
+  {
+    id: "rev_demo_revision_1_en",
+    memoId: "memo_demo_revision_en",
+    revision: 1,
+    title: "Version History: Meeting Decision Log",
+    markdown:
+      "## Meeting Decision Log\n\n- Finish editor and table support first\n- Add Mermaid diagrams next\n- Polish the release outline last\n\nThis is the original draft; later revisions added the verification results.",
+  },
 ];
+const DEMO_MEMO_ENGLISH = {
+  memo_welcome: {
+    title: "Welcome to EdgeEver",
+    markdown:
+      "## Welcome to EdgeEver\n\nThis public demo is safe for exploring, editing, searching, and merging notes. Demo data resets every Monday at 1:00 AM China Standard Time.\n\n### Three-minute tour\n\n1. Create a temporary note and add a tag.\n2. Search for `workflow`, `full-text search`, or `inbox`.\n3. Open the rich-text and Markdown editor sample.\n4. Select the two merge samples and merge them into a long-term note.\n5. Try the table, Mermaid, focus mode, character count, and version history samples.",
+  },
+  memo_demo_editor: {
+    title: "Rich Text and Markdown Editor",
+    markdown:
+      "## Rich Text and Markdown Editor\n\nEdit the headings, list, quote, and code block, then switch to Markdown mode to compare the source. EdgeEver stores structured editor content while keeping Markdown available for APIs and AI Agents.",
+  },
+  memo_demo_search_tags: {
+    title: "Tags, Search, and Archive",
+    markdown:
+      "## Tags, Search, and Archive\n\nTry searching for `workflow`, `full-text search`, or `inbox`. Use notebooks for long-term structure and tags for cross-cutting connections, so quick captures do not get lost.",
+  },
+  memo_demo_merge: {
+    title: "Multi-select Note Merge",
+    markdown:
+      "## Multi-select Note Merge\n\nSelect the interview excerpt and competitor observation samples, then merge them into one long-term note. The source notes move to Trash and their resource links follow the merged result.",
+  },
+  memo_demo_merge_interview: {
+    title: "Merge Source: Interview Excerpt",
+    markdown:
+      "## User Interview Excerpt\n\n- People want to capture quickly and organize later.\n- Search is often better than deep folder nesting for finding scattered ideas.\n- Important material should become a maintainable long-term note.",
+  },
+  memo_demo_merge_competitor: {
+    title: "Merge Source: Competitor Observation",
+    markdown:
+      "## Competitor Observation\n\n- A lightweight capture path creates a healthier inbox.\n- Tags connect themes without forcing duplicate filing.\n- Periodically merging fragments into conclusions reduces maintenance cost.",
+  },
+  memo_demo_agent: {
+    title: "Agent-ready: REST API and MCP",
+    markdown:
+      "## Agent-ready: REST API and MCP\n\nEdgeEver exposes REST, OpenAPI, and MCP endpoints. An AI Agent can read notebooks, create notes, organize tags, and migrate material into a self-hosted instance.\n\n- OpenAPI: `/api/openapi.json`\n- MCP: `/mcp`",
+  },
+  memo_demo_mermaid_flowchart: {
+    title: "Mermaid: Note Triage Flowchart",
+    markdown:
+      "## Note Triage Flowchart\n\nEdit the standard `mermaid` fenced block below and watch the preview update. Flowcharts are useful for decisions, branches, and repeatable workflows.\n\n```mermaid\nflowchart TD\n  A[\"Capture an idea\"] --> B{\"Needs action now?\"}\n  B -- \"Yes\" --> C[\"Add to today's actions\"]\n  B -- \"No\" --> D[\"Put in Inbox\"]\n  D --> E{\"Long-term topic?\"}\n  E -- \"Yes\" --> F[\"Move to topic notebook\"]\n  E -- \"No\" --> G[\"Tag and archive\"]\n```",
+  },
+  memo_demo_mermaid_sequence: {
+    title: "Mermaid: Offline Sync Sequence",
+    markdown:
+      "## Offline Sync Sequence\n\nSequence diagrams explain interactions between users, apps, queues, APIs, and databases over time. The source remains editable Markdown.\n\n```mermaid\nsequenceDiagram\n  actor U as User\n  participant A as EdgeEver App\n  participant Q as Sync Queue\n  participant API as EdgeEver API\n  participant DB as D1\n  U->>A: Edit and save\n  A->>Q: Write local draft\n  Q->>API: Submit when online\n  API->>DB: Validate revision\n  DB-->>API: Return new revision\n  API-->>Q: Sync succeeded\n```",
+  },
+  memo_demo_mermaid_state: {
+    title: "Mermaid: Note Lifecycle State Diagram",
+    markdown:
+      "## Note Lifecycle\n\nState diagrams show the states of an object and the events that move it between states.\n\n```mermaid\nstateDiagram-v2\n  [*] --> Draft\n  Draft --> PendingSync: Save offline\n  Draft --> Saved: Save online\n  PendingSync --> Saved: Sync succeeds\n  PendingSync --> Conflict: Server version changed\n  Conflict --> Draft: Keep local version\n  Conflict --> Saved: Accept server version\n  Saved --> Archived: Archive\n  Saved --> Trash: Delete\n  Trash --> Saved: Restore\n```",
+  },
+  memo_demo_mermaid_gantt: {
+    title: "Mermaid: One-week Release Plan",
+    markdown:
+      "## One-week Release Plan\n\nGantt charts place tasks, dependencies, and dates on one timeline.\n\n```mermaid\ngantt\n  title EdgeEver Feature Release\n  dateFormat YYYY-MM-DD\n  section Build\n  Mermaid rendering :done, dev1, 2026-07-20, 2d\n  Mobile editor polish :done, dev2, after dev1, 1d\n  section Verify\n  Automated tests :active, qa1, after dev2, 1d\n  Web and Android review :qa2, after qa1, 1d\n```",
+  },
+  memo_demo_mobile: {
+    title: "Mobile and PWA",
+    markdown:
+      "## Mobile and PWA\n\nUse the desktop three-pane workspace for organization and the PWA or native app for quick capture. Create an Inbox note on your phone, then finish organizing it on desktop.",
+  },
+  memo_demo_images: {
+    title: "Image Note Sample",
+    markdown:
+      "## Image Note Sample\n\nImages are stored as resources and rendered inside the note. Keeping the image, caption, and conclusion together makes screenshots, design references, and reading clippings easier to revisit.",
+  },
+  memo_demo_table: {
+    title: "Table Editing: Feature Comparison",
+    markdown:
+      "## Table Editing: Feature Comparison\n\nEdit this table on Web or mobile. Click a cell to change its value, or add rows and columns to turn it into a real project tracker.\n\n| Capability | Web | Mobile | Use case |\n| --- | --- | --- | --- |\n| Create tables | Supported | Supported | Meeting notes |\n| Edit cells | Supported | Supported | Planning |\n| Horizontal scroll | Supported | Supported | Comparisons |",
+  },
+  memo_demo_character_count: {
+    title: "Character Count: Product Summary",
+    markdown:
+      "## Character Count: Product Summary\n\nEdgeEver is an open, lightweight, AI-Agent-friendly knowledge base. Its three-pane workflow supports quick capture, focused editing, and long-term organization while APIs and MCP keep the data portable.\n\nEdit, delete, or paste text and watch the character count update in real time.",
+  },
+  memo_demo_focus_mode: {
+    title: "Desktop Focus Mode: Release Outline",
+    markdown:
+      "## Desktop Focus Mode: Release Outline\n\nOpen this long-form note and click the focus-mode control in the editor header. The editor expands across the workspace so the notebook tree and note list do not compete for attention.\n\n- Positioning: turn scattered material into maintainable knowledge\n- Demo path: capture, table editing, Mermaid, and version restore\n- Exercise: add a release paragraph, then return to the three-pane layout",
+  },
+  memo_demo_revision: {
+    title: "Version History: Meeting Decision Log",
+    markdown:
+      "## Version History: Meeting Decision Log\n\nThis note includes a historical snapshot. Open Version history to compare the draft with the current conclusion, then restore a version to create a new revision.\n\n- Start with Web and mobile table editing\n- Cover flowchart, sequence, state, and Gantt Mermaid diagrams\n- Use focus mode for the final long-form review",
+  },
+} as const;
+const DEMO_SEED_MEMOS_EN = DEMO_SEED_MEMOS_ZH.map((memo) => {
+  const english = DEMO_MEMO_ENGLISH[memo.id as keyof typeof DEMO_MEMO_ENGLISH];
+  if (!english) {
+    return null;
+  }
+
+  return {
+    ...memo,
+    id: `${memo.id}_en`,
+    notebookId: "nb_demo_features_en",
+    title: english.title,
+    markdown: english.markdown,
+  };
+}).filter((memo): memo is NonNullable<typeof memo> => memo !== null);
+const DEMO_SEED_MEMOS = [...DEMO_SEED_MEMOS_ZH, ...DEMO_SEED_MEMOS_EN];
 const DEMO_SEED_RESOURCES = [
   {
     id: "res_demo_editor_image",

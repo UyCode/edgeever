@@ -245,6 +245,7 @@ export const WorkspaceScreen = () => {
   const dataScope = createMobileDataScope(session?.baseUrl ?? "", session?.user?.id);
   const [activeView, setActiveView] = useState<MobileView>("notes");
   const [activeNotebookId, setActiveNotebookId] = useState<string>(ALL_NOTES_ID);
+  const autoSelectedDemoNotebookRef = useRef(false);
   const [memoView, setMemoView] = useState<MemoView>("notebook");
   const [memoFilterMode, setMemoFilterMode] = useState<MemoFilterMode>("all");
   const [memoSortMode, setMemoSortMode] = useState<MemoSortMode>("updated-desc");
@@ -289,6 +290,26 @@ export const WorkspaceScreen = () => {
   });
 
   const notebooks = notebooksQuery.data?.notebooks ?? [];
+  useEffect(() => {
+    const english = isEnglishMobileLocale(localePreference);
+    const preferredNotebookId = english ? "nb_demo_features_en" : "nb_demo_features";
+    const alternateNotebookId = english ? "nb_demo_features" : "nb_demo_features_en";
+
+    if (!notebooks.some((notebook) => notebook.id === preferredNotebookId)) {
+      return;
+    }
+
+    if (!autoSelectedDemoNotebookRef.current && activeNotebookId === ALL_NOTES_ID) {
+      autoSelectedDemoNotebookRef.current = true;
+      setActiveNotebookId(preferredNotebookId);
+      return;
+    }
+
+    if (activeNotebookId === alternateNotebookId) {
+      setActiveNotebookId(preferredNotebookId);
+    }
+  }, [activeNotebookId, localePreference, notebooks]);
+
   const activeNotebook = notebooks.find((notebook) => notebook.id === activeNotebookId) ?? null;
   const activeNotebookDescendantIds = useMemo(
     () => (activeNotebookId === ALL_NOTES_ID ? [] : getNotebookDescendantIds(notebooks, activeNotebookId)),
