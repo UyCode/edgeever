@@ -173,7 +173,7 @@ export const enUS = {
     themeToggleToLight: "Switch to light mode",
     tabs: {
       general: "General",
-      data: "Data Management",
+      data: "Import & Export",
       ai: "AI Integrations",
       account: "Login Settings",
     },

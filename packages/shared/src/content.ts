@@ -87,6 +87,7 @@ const isTiptapTextNode = (node: TiptapNode | TiptapTextNode): node is TiptapText
 
 /** Convert the first-generation plain-text attachment insertion into a link mark. */
 const upgradeLegacyAttachmentLinks = (doc: TiptapDoc): TiptapDoc => {
+  let changed = false;
   const visit = (node: TiptapNode | TiptapTextNode): TiptapNode | TiptapTextNode => {
     if (isTiptapTextNode(node)) {
       const match = node.text.match(LEGACY_ATTACHMENT_PATTERN);
@@ -99,6 +100,7 @@ const upgradeLegacyAttachmentLinks = (doc: TiptapDoc): TiptapDoc => {
         return node;
       }
 
+      changed = true;
       return {
         ...node,
         text: `${match[1]}${match[2]}`,
@@ -114,7 +116,8 @@ const upgradeLegacyAttachmentLinks = (doc: TiptapDoc): TiptapDoc => {
       : node;
   };
 
-  return visit(doc) as TiptapDoc;
+  const upgradedDoc = visit(doc) as TiptapDoc;
+  return changed ? upgradedDoc : doc;
 };
 
 export const docToText = (doc: unknown): string => {

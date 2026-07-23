@@ -173,7 +173,7 @@ export const zhCN = {
     themeToggleToLight: "切换到浅色模式",
     tabs: {
       general: "常规设置",
-      data: "数据管理",
+      data: "导入导出",
       ai: "AI集成",
       account: "登录设置",
     },
