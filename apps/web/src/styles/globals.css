@@ -226,26 +226,30 @@ textarea {
 .ProseMirror a[href*="/api/v1/resources/"] {
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
-  max-width: min(100%, 34rem);
-  padding: 0.55rem 0.8rem;
+  gap: 0.3rem;
+  max-width: min(100%, 30rem);
+  padding: 0.3rem 0.55rem;
   border: 1px solid rgb(203 213 225 / 0.9);
-  border-radius: 0.65rem;
+  border-radius: 0.45rem;
   background: linear-gradient(135deg, rgb(248 250 252), rgb(241 245 249));
   color: rgb(30 41 59);
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.2;
   text-decoration: none;
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
   transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.ProseMirror li:has(> p > a[href*="/api/v1/resources/"]) {
+  margin-bottom: 0.25rem;
 }
 
 .ProseMirror a.edgeever-attachment-link::before,
 .ProseMirror a[href*="/api/v1/resources/"]::before {
   content: "📎";
   flex: 0 0 auto;
-  font-size: 1rem;
+  font-size: 0.8rem;
 }
 
 .ProseMirror a.edgeever-attachment-link:hover,
