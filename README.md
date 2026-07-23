@@ -60,7 +60,7 @@ Choose any one of the following three options to complete deployment.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/tianma-if/edgeever)
 
-One-click deployment creates a dedicated GitHub repository and the required Cloudflare resources for the EdgeEver product Worker, then automatically redeploys after the repository's daily upstream sync; see [Deploy EdgeEver with Cloudflare](docs/deploy-cloudflare-button.md) for setup and troubleshooting. The official marketing site in `apps/site` is a separate Cloudflare Pages project and is not required for a self-hosted product instance.
+One-click deployment creates a dedicated GitHub repository and the required Cloudflare resources, then automatically redeploys after the repository's daily upstream sync; see [Deploy EdgeEver with Cloudflare](docs/deploy-cloudflare-button.md) for setup and troubleshooting.
 
 ### Option B: Deploy with an AI Agent
 
@@ -80,7 +80,7 @@ Please follow these steps:
 
 Agents should follow [AI Agent Cloudflare Deployment](docs/agent-deploy-cloudflare.md).
 
-After the first deployment, see [Cloudflare Workers Builds](docs/cloudflare-workers-builds.md). All installation entry points use the same product Worker build, migration, deployment, and verification pipeline; they do not deploy the official site.
+After the first deployment, see [Cloudflare Workers Builds](docs/cloudflare-workers-builds.md). All installation entry points use the same build, migration, deployment, and verification pipeline.
 
 > Common pitfall: Cloudflare R2, D1, and Workers may still require a Visa card during activation or usage, even when you stay within the free quotas.
 
